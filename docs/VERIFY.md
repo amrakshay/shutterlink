@@ -79,7 +79,19 @@ whether the message arrived before assuming the UI is broken.
 **The camera phone's copy must exist even if the transfer fails.** Test that
 deliberately: start a capture and walk out of range.
 
-## 5 — Phase 6: survival
+## 5 — Phase 6: survival  ⚠️ partly tested 2026-11-09
+
+| Checked | Result |
+|---|---|
+| Foreground service runs, `isForeground=true`, notification posted | **Passes** |
+| Streaming continues with the screen off | **Fails** — the frame counter freezes; the control channel stays alive, the camera does not. See FINDINGS §8 |
+| Recovers on wake | **Inconclusive** — another app took the foreground on wake, so our activity never resumed |
+| Reconnect after going out of range | Not tested |
+| 20-minute session | Not tested |
+
+The remaining rows need the camera phone to have nothing else competing for the
+foreground.
+
 
 | Check | What good looks like |
 |---|---|

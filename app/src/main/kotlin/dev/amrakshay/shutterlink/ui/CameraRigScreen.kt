@@ -81,12 +81,30 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
     var countdown by remember { mutableStateOf<Int?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
     var rotation by remember { mutableIntStateOf(0) }
+
+    // Bumped on every resume to force a rebind.
+    //
+    // CameraX unbinds when the activity stops, which is what happens the moment
+    // the screen locks. Nothing brought it back: the binding effect is keyed on
+    // the camera and the quality, neither of which changed, so waking the phone
+    // left a live connection with a dead camera — the control channel still
+    // answering pings while the picture stayed frozen. That reads as a broken
+    // app rather than a sleeping one.
+    var bindEpoch by remember { mutableIntStateOf(0) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) bindEpoch++
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     var lastFacts by remember { mutableStateOf<dev.amrakshay.shutterlink.camera.CameraFacts?>(null) }
 
     // Start, and restart whenever the camera or the quality changes. Both need
     // the encoder torn down and rebuilt: the encoder's input Surface is fixed at
     // the size it was created with.
-    LaunchedEffect(front, quality) {
+    LaunchedEffect(front, quality, bindEpoch) {
         runCatching {
             encoder?.stop()
             val sink = pairing.startVideo()
