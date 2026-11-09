@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.PowerManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -38,10 +39,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import dev.amrakshay.shutterlink.camera.CameraSession
 import dev.amrakshay.shutterlink.camera.PhotoStore
 import dev.amrakshay.shutterlink.camera.PreviewEncoder
 import dev.amrakshay.shutterlink.camera.StreamQuality
+import dev.amrakshay.shutterlink.camera.StreamingService
 import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.transport.Pairing
 import dev.amrakshay.shutterlink.transport.thisPhoneName
@@ -104,12 +107,45 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
         }
     }
 
+    // Without this the camera stops within seconds of the screen going dark,
+    // which is exactly the state this phone is meant to sit in.
     DisposableEffect(Unit) {
+        StreamingService.start(context)
         onDispose {
+            StreamingService.stop(context)
             encoder?.stop()
             session.release()
             pairing.stopVideo()
         }
+    }
+
+    // Step the quality down before the phone throttles itself. A stream that
+    // quietly drops to 540p is far better than one that stutters because the
+    // encoder is being thermally starved, and better than a phone that gets too
+    // hot to hold halfway through a shoot.
+    var thermal by remember { mutableStateOf("none") }
+    DisposableEffect(Unit) {
+        val power = context.getSystemService(PowerManager::class.java)
+        val listener = PowerManager.OnThermalStatusChangedListener { status ->
+            thermal = when (status) {
+                PowerManager.THERMAL_STATUS_NONE -> "none"
+                PowerManager.THERMAL_STATUS_LIGHT -> "light"
+                PowerManager.THERMAL_STATUS_MODERATE -> "moderate"
+                PowerManager.THERMAL_STATUS_SEVERE -> "severe"
+                else -> "critical"
+            }
+            val wanted = when {
+                status >= PowerManager.THERMAL_STATUS_SEVERE -> StreamQuality.LOW
+                status >= PowerManager.THERMAL_STATUS_MODERATE -> StreamQuality.MEDIUM
+                else -> null
+            }
+            // Only ever downwards here. Climbing back up the moment the phone
+            // cools would oscillate, and each change costs a visible restart of
+            // the stream.
+            if (wanted != null && wanted.height < quality.height) quality = wanted
+        }
+        power.addThermalStatusListener(ContextCompat.getMainExecutor(context), listener)
+        onDispose { power.removeThermalStatusListener(listener) }
     }
 
     // Do as the controller says.
@@ -175,7 +211,7 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
             pairing.send(
                 Message.Status(
                     batteryPercent = batteryPercent(context),
-                    thermal = "unknown",
+                    thermal = thermal,
                     streaming = streaming,
                     shotsTaken = shots,
                 ),

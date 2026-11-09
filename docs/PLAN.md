@@ -200,7 +200,7 @@ Each phase ends in something you can actually run on a phone.
 - Session filmstrip of everything shot this session.
 - **Done when:** full loop works — frame, shoot, review, retake.
 
-### Phase 6 — Make it survive real use *(~4 days)*
+### Phase 6 — Make it survive real use — **written, unverified**
 - Reconnect automatically after a drop; preview resumes without losing the session.
 - Camera phone keeps running with screen off / app backgrounded → foreground service with a
   persistent notification (this is required, and also honest to the user).

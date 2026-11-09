@@ -3,6 +3,7 @@ package dev.amrakshay.shutterlink.transport
 import android.os.Build
 import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.protocol.Role
+import dev.amrakshay.shutterlink.protocol.Reconnect
 import dev.amrakshay.shutterlink.protocol.isCompatible
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
@@ -13,6 +14,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /** What this phone's name looks like to the other one. */
@@ -34,6 +37,7 @@ data class PairingState(
     val arrivedPhoto: java.io.File? = null,
     val problem: String? = null,
     val incompatible: Boolean = false,
+    val reconnecting: String? = null,
 )
 
 /**
@@ -76,6 +80,11 @@ class Pairing(
     fun startPhotoTransfer(file: java.io.File): Long? = transport.sendPhoto(file)
 
     private val myName = thisPhoneName()
+    private val reconnect = Reconnect()
+    private var retryJob: Job? = null
+
+    /** True once this pairing has been connected at least once. */
+    private var everConnected = false
 
     fun start() {
         scope.launch { transport.events.collect(::onEvent) }
@@ -113,7 +122,18 @@ class Pairing(
             }
 
             is TransportEvent.Connected -> {
-                _state.update { it.copy(connected = event.peer, pending = null, problem = null) }
+                everConnected = true
+                retryJob?.cancel()
+                retryJob = null
+                reconnect.succeeded()
+                _state.update {
+                    it.copy(
+                        connected = event.peer,
+                        pending = null,
+                        problem = null,
+                        reconnecting = null,
+                    )
+                }
                 // The controller opens the conversation; whoever speaks first
                 // has to be fixed, or both sides wait for the other.
                 if (role == Role.CONTROLLER) {
@@ -122,14 +142,21 @@ class Pairing(
                 }
             }
 
-            is TransportEvent.Disconnected -> _state.update {
-                it.copy(
-                    connected = null,
-                    pending = null,
-                    theirCapabilities = null,
-                    latencyMillis = null,
-                    peers = it.peers.filterNot { p -> p.id == event.id },
-                )
+            is TransportEvent.Disconnected -> {
+                _state.update {
+                    it.copy(
+                        connected = null,
+                        pending = null,
+                        theirCapabilities = null,
+                        latencyMillis = null,
+                        video = null,
+                        peers = it.peers.filterNot { p -> p.id == event.id },
+                    )
+                }
+                // Only chase a connection that existed. A rejected first
+                // attempt is the user saying no, and retrying that would be
+                // pestering rather than recovering.
+                if (everConnected) startRetrying()
             }
 
             is TransportEvent.Received -> {
@@ -151,6 +178,34 @@ class Pairing(
 
             is TransportEvent.Failed -> _state.update {
                 it.copy(problem = "Trouble ${event.doing}: ${event.cause?.message ?: "unknown"}")
+            }
+        }
+    }
+
+    /**
+     * Try to get back, backing off, and say so while it happens.
+     *
+     * The policy lives in [Reconnect] in the protocol module, where it is
+     * tested — backoff is the kind of code that looks obviously right and either
+     * hammers the radio flat or gives up while the user is still walking back
+     * into range.
+     */
+    private fun startRetrying() {
+        if (retryJob?.isActive == true) return
+        retryJob = scope.launch {
+            while (!reconnect.giveUp && _state.value.connected == null) {
+                _state.update { it.copy(reconnecting = reconnect.describe()) }
+                delay(reconnect.nextDelayMillis())
+                reconnect.attempted()
+                when (role) {
+                    Role.CAMERA -> transport.advertise(myName)
+                    Role.CONTROLLER -> transport.discover()
+                }
+                // Give the attempt a chance to land before counting it as lost.
+                delay(4_000)
+            }
+            if (_state.value.connected == null) {
+                _state.update { it.copy(reconnecting = reconnect.describe()) }
             }
         }
     }

@@ -22,6 +22,10 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- **Phase 6 — surviving real use.** A foreground service so the camera keeps running with the
+  screen off (required, not a convenience — Android stops the camera within seconds otherwise), a
+  tested backoff policy that reconnects without hammering the radio, and thermal stepping that
+  drops the stream quality before the phone throttles itself. **Written but not yet run.**
 - **Phases 3–5 — the live preview, remote control, and the photo coming back.** The camera feeds a
   hardware H.264 encoder directly through its input Surface, so no frame is copied through the CPU;
   frames are length-prefixed with a resynchronising magic and sent on a separate channel from the

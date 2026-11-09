@@ -38,6 +38,7 @@ The app asks for a lot, and it should be able to justify every one.
 | `ACCESS_FINE_LOCATION` | Android 10–12 refuse *any* BLE scan or Wi-Fi Direct discovery without it. The app does not read your location and does not want it; `maxSdkVersion="32"` means it is never even requested on Android 13 and up. | Phase 2, Android ≤ 12 only |
 | `NEARBY_WIFI_DEVICES` | The Android 13+ replacement for the above, declared `neverForLocation` so the system itself enforces that we cannot derive a location from it. | Phase 2, Android 13+ |
 | `FOREGROUND_SERVICE` | The far phone has to keep streaming with its screen off. The notification is required and deliberate — you should be able to see that it is running. | Phase 6 |
+| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CAMERA` | The camera phone has to keep streaming with its screen off, and Android stops the camera within seconds otherwise. The notification this requires is deliberate and is not suppressed: a phone holding a live camera should say so where its owner can see it. | Phase 6 |
 | `READ_MEDIA_IMAGES` | Picking up a photo another camera app just saved, so it can be sent back to you. | Phase 5.5 |
 | `SYSTEM_ALERT_WINDOW` | Only for third-party camera apps that cannot hand a photo back directly; it is what lets ShutterLink return to the foreground afterwards. Requested at the moment you first use such an app, never on launch. | Phase 5.5, optional |
 

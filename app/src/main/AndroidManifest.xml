@@ -43,6 +43,14 @@
         tools:targetApi="33" />
 
 
+    <!--
+      Keeping the camera alive with the screen off. Required rather than
+      convenient: Android stops the camera within seconds otherwise, and this
+      phone is meant to sit across the room untouched.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <uses-feature android:name="android.hardware.wifi.direct" android:required="false" />
@@ -64,5 +72,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".camera.StreamingService"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
     </application>
 </manifest>

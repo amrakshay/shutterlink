@@ -101,6 +101,17 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
             else -> Looking(state.peers, pairing::connectTo, onBack)
         }
 
+        state.reconnecting?.let {
+            Text(
+                it,
+                color = Ink.Warning,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 22.dp),
+            )
+        }
+
         state.problem?.let {
             Text(
                 it,
