@@ -34,8 +34,15 @@ sealed interface TransportEvent {
     /** A photo is on its way. [percent] is -1 while the size is still unknown. */
     data class PhotoArriving(val payloadId: Long, val percent: Int) : TransportEvent
 
-    /** A photo finished transferring. The file lives in Nearby's own download area. */
-    data class PhotoArrived(val payloadId: Long, val file: java.io.File) : TransportEvent
+    /**
+     * A photo finished transferring.
+     *
+     * A content Uri, not a File. Nearby drops received files in its own folder
+     * under Download, which scoped storage will not let us open by path —
+     * `length()` succeeds on it and `open()` fails with EACCES, which makes the
+     * failure look like a corrupt image rather than a permission problem.
+     */
+    data class PhotoArrived(val payloadId: Long, val uri: android.net.Uri) : TransportEvent
 
     data class PhotoFailed(val payloadId: Long) : TransportEvent
 

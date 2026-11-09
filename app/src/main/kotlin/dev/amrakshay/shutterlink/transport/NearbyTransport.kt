@@ -161,12 +161,17 @@ class NearbyTransport(context: Context) : Transport {
 
                 PayloadTransferUpdate.Status.SUCCESS -> {
                     arrivingFiles.remove(update.payloadId)
-                    val file = pending.asFile()?.asJavaFile()
-                    if (file == null) {
-                        Log.w(TAG, "payload ${update.payloadId} completed with no file")
+                    // asUri(), never asJavaFile(). The path it returns is inside
+                    // Nearby's own Download folder, which scoped storage refuses
+                    // to open from this app — and it refuses in a way that looks
+                    // like a damaged image rather than a permission problem,
+                    // because stat succeeds and only open fails.
+                    val uri = pending.asFile()?.asUri()
+                    if (uri == null) {
+                        Log.w(TAG, "payload ${update.payloadId} completed with no uri")
                         emit(TransportEvent.PhotoFailed(update.payloadId))
                     } else {
-                        emit(TransportEvent.PhotoArrived(update.payloadId, file))
+                        emit(TransportEvent.PhotoArrived(update.payloadId, uri))
                     }
                 }
 

@@ -23,7 +23,7 @@ Watch both at once while testing:
 adb -s <phone> logcat -s ShutterLink/Transport ShutterLink/Encoder ShutterLink/Decoder ShutterLink/HID
 ```
 
-## 1 — Finish Phase 2: they find each other
+## 1 — Finish Phase 2: they find each other  ✅ passed 2026-11-09
 
 | Check | What good looks like |
 |---|---|
@@ -37,7 +37,7 @@ adb -s <phone> logcat -s ShutterLink/Transport ShutterLink/Encoder ShutterLink/D
 **If discovery finds nothing:** check both phones have Bluetooth *and* Wi-Fi on,
 location on (Android ≤ 12), and neither is in battery saver.
 
-## 2 — Phase 3: the picture
+## 2 — Phase 3: the picture  ✅ passed 2026-11-09
 
 | Check | What good looks like |
 |---|---|
@@ -54,7 +54,7 @@ likely to be wrong and shows up as a permanently black viewfinder.
 pictures before setup bytes. **If no frames count at all:** the encoder or the
 stream channel, not the decoder.
 
-## 3 — Phase 4: the controls
+## 3 — Phase 4: the controls  ✅ passed 2026-11-09
 
 | Check | What good looks like |
 |---|---|
@@ -66,7 +66,7 @@ stream channel, not the decoder.
 Nothing here updates optimistically — if a control appears to do nothing, check
 whether the message arrived before assuming the UI is broken.
 
-## 4 — Phase 5: the photo comes back
+## 4 — Phase 5: the photo comes back  ✅ passed 2026-11-09
 
 | Check | What good looks like |
 |---|---|

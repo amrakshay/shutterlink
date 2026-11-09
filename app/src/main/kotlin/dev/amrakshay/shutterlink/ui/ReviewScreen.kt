@@ -36,7 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.amrakshay.shutterlink.camera.PhotoStore
-import java.io.File
+import dev.amrakshay.shutterlink.transport.ArrivedPhoto
 
 /**
  * The shot that just came over, so you can decide whether to take another.
@@ -48,7 +48,7 @@ import java.io.File
  */
 @Composable
 fun ReviewScreen(
-    photo: File,
+    photo: ArrivedPhoto,
     onRetake: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -59,17 +59,29 @@ fun ReviewScreen(
     var tooBig by remember { mutableStateOf(false) }
 
     LaunchedEffect(photo) {
+        // Through the ContentResolver, never by path. Nearby leaves received
+        // files in its own Download folder, which scoped storage will not open
+        // by path from here.
+        //
         // Downsampled on purpose: a 12MP JPEG decoded whole is around 48MB of
         // bitmap, which is a plausible way to run a mid-range phone out of heap
-        // while it is also encoding video.
+        // while it is also decoding video.
+        val resolver = context.contentResolver
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(photo.absolutePath, bounds)
+        runCatching {
+            resolver.openInputStream(photo.uri).use { BitmapFactory.decodeStream(it, null, bounds) }
+        }
         var sample = 1
-        while (bounds.outWidth / sample > 1600) sample *= 2
-        val decoded = BitmapFactory.decodeFile(
-            photo.absolutePath,
-            BitmapFactory.Options().apply { inSampleSize = sample },
-        )
+        while (bounds.outWidth > 0 && bounds.outWidth / sample > 1600) sample *= 2
+        val decoded = runCatching {
+            resolver.openInputStream(photo.uri).use {
+                BitmapFactory.decodeStream(
+                    it,
+                    null,
+                    BitmapFactory.Options().apply { inSampleSize = sample },
+                )
+            }
+        }.getOrNull()
         if (decoded == null) tooBig = true else bitmap = decoded.asImageBitmap()
     }
 
@@ -87,7 +99,7 @@ fun ReviewScreen(
             Column(Modifier.weight(1f)) {
                 Text(photo.name, color = Ink.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "${photo.length() / 1024} KB · also on the camera phone",
+                    "${photo.bytes / 1024} KB · also on the camera phone",
                     color = Ink.Muted,
                     fontSize = 12.sp,
                 )
@@ -150,8 +162,7 @@ fun ReviewScreen(
                             RoundedCornerShape(15.dp),
                         )
                         .clickable(enabled = !saved) {
-                            photos.publish(photo)
-                            saved = true
+                            saved = photos.publish(photo.uri, photo.name) != null
                         }
                         .padding(vertical = 16.dp),
                 )

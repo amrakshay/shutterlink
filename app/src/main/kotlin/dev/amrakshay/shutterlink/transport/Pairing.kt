@@ -25,6 +25,20 @@ fun thisPhoneName(): String = listOfNotNull(
     Build.MODEL?.takeIf { it.isNotBlank() },
 ).joinToString(" ").ifBlank { "Android phone" }
 
+/**
+ * A photo that has come over.
+ *
+ * The name comes from the camera phone's own [Message.PhotoReady], not from the
+ * transport: Nearby names the received file after its payload id, so showing
+ * what it hands us puts "-4709986883054979248" on screen where the filename
+ * should be.
+ */
+data class ArrivedPhoto(
+    val uri: android.net.Uri,
+    val name: String,
+    val bytes: Long,
+)
+
 /** Everything the pairing screens need to draw themselves. */
 data class PairingState(
     val peers: List<Peer> = emptyList(),
@@ -35,7 +49,7 @@ data class PairingState(
     val video: java.io.InputStream? = null,
     /** -1 while the size is unknown, 100 when done, null when nothing is arriving. */
     val photoProgress: Int? = null,
-    val arrivedPhoto: java.io.File? = null,
+    val arrivedPhoto: ArrivedPhoto? = null,
     val problem: String? = null,
     val incompatible: Boolean = false,
     val reconnecting: String? = null,
@@ -92,6 +106,9 @@ class Pairing(
 
     /** True once this pairing has been connected at least once. */
     private var everConnected = false
+
+    /** payload id -> what the camera phone called it, from PhotoReady. */
+    private val expectedPhotos = mutableMapOf<Long, Message.PhotoReady>()
 
     fun start() {
         scope.launch { transport.events.collect(::onEvent) }
@@ -175,8 +192,18 @@ class Pairing(
 
             is TransportEvent.PhotoArriving -> _state.update { it.copy(photoProgress = event.percent) }
 
-            is TransportEvent.PhotoArrived -> _state.update {
-                it.copy(photoProgress = null, arrivedPhoto = event.file)
+            is TransportEvent.PhotoArrived -> {
+                val announced = expectedPhotos.remove(event.payloadId)
+                _state.update {
+                    it.copy(
+                        photoProgress = null,
+                        arrivedPhoto = ArrivedPhoto(
+                            uri = event.uri,
+                            name = announced?.name ?: "Photo",
+                            bytes = announced?.bytes ?: 0L,
+                        ),
+                    )
+                }
             }
 
             is TransportEvent.PhotoFailed -> _state.update {
@@ -239,6 +266,10 @@ class Pairing(
 
             is Message.Engines -> _state.update { it.copy(engines = message.engines) }
 
+            // Remembered so the file, when it lands, can be shown under the name
+            // the camera phone gave it.
+            is Message.PhotoReady -> expectedPhotos[message.payloadId] = message
+
             is Message.Ping -> transport.send(Message.Pong(message.stamp))
 
             is Message.Pong -> _state.update {
@@ -261,7 +292,6 @@ class Pairing(
             is Message.Countdown,
             Message.CaptureStarted,
             is Message.CaptureFailed,
-            is Message.PhotoReady,
             is Message.Status,
             is Message.DeletePhoto,
             -> Unit

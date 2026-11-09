@@ -141,6 +141,38 @@ class PhotoStore(private val context: Context) {
         file
     }.getOrNull()
 
+    /** Copy an incoming photo into the gallery, reading it through its Uri. */
+    fun publish(source: Uri, name: String): Uri? {
+        val values = ContentValues().apply {
+            put(MediaStore.Images.Media.DISPLAY_NAME, name)
+            put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+            put(MediaStore.Images.Media.RELATIVE_PATH, ALBUM)
+            put(MediaStore.Images.Media.IS_PENDING, 1)
+        }
+        val target = context.contentResolver.insert(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            values,
+        ) ?: return null
+        val ok = runCatching {
+            context.contentResolver.openOutputStream(target).use { out ->
+                if (out == null) return@runCatching false
+                context.contentResolver.openInputStream(source).use { input ->
+                    if (input == null) return@runCatching false
+                    input.copyTo(out)
+                }
+            }
+            true
+        }.getOrDefault(false)
+        if (!ok) return null
+        context.contentResolver.update(
+            target,
+            ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) },
+            null,
+            null,
+        )
+        return target
+    }
+
     /** Throw away a cached capture once it has been published and sent. */
     fun discard(file: File) {
         runCatching { file.delete() }

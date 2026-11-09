@@ -184,7 +184,7 @@ Each phase ends in something you can actually run on a phone.
   with latency low enough to frame a shot. **Target: under 200 ms glass-to-glass.** If we can't get
   under ~400 ms, I'll tell you plainly and we'll discuss trade-offs rather than quietly shipping lag.
 
-### Phase 4 — Remote control — **written, unverified**
+### Phase 4 — Remote control — **working on two phones**
 - Shutter, zoom (slider + pinch on the controller's viewfinder), camera flip, timer — all driven
   from the controller via `BYTES` messages.
 - Countdown mirrored on both screens; the camera phone beeps/flashes so people being photographed
@@ -192,7 +192,7 @@ Each phase ends in something you can actually run on a phone.
 - Preview stream pauses cleanly during capture and resumes.
 - **Done when:** the controller is a complete remote. The camera phone is never touched.
 
-### Phase 5 — Photo comes back — **written, unverified**
+### Phase 5 — Photo comes back — **working on two phones**
 - `ImageCapture` writes full-res JPEG on the camera phone (always kept there — source of truth).
 - Transferred as a Nearby `FILE` payload with progress shown on the controller.
 - Review screen on the controller: pinch-zoom the result, Keep / Delete / Retake.
@@ -578,6 +578,8 @@ up to date — CONTRIBUTING.md asks PRs to.
 | 2026-11-09 | Samsung M04 | On API 34 the runtime permissions are `BLUETOOTH_SCAN`/`ADVERTISE`/`CONNECT` and `NEARBY_WIFI_DEVICES`, and `ACCESS_FINE_LOCATION` is **not** requested — the `maxSdkVersion="32"` cap works | Passed |
 | 2026-11-09 | Both | **§1 passes.** Discovery, matching 4-digit codes on both screens, accept on both, connection, handshake, live round trip (78–172 ms) | Passed |
 | 2026-11-09 | Both | **§2 passes.** Live 720p preview from the OnePlus shown on the Samsung, upright and full frame; ~1100 frames with 6 dropped | Passed |
+| 2026-11-09 | Both | **§3 passes.** Camera flip and the self-timer driven from the controller; the far phone rebinds and reports back | Passed |
+| 2026-11-09 | Both | **§4 passes.** Remote shutter fires, the photo lands in the camera phone's gallery full size, transfers (~4.4 MB), opens in the review screen, and reaches the controller's gallery **only** on Save | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: the permission list is computed from the running Android version — on API 29 it asks for Location only, with the reason on screen, and never for the API 31+ Bluetooth permissions | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: Nearby advertising starts — `startAdvertising` succeeds over BLE/Bluetooth/WIFI_LAN with Wi-Fi Direct among the upgrade mediums | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: the waiting screen shows the name the other phone should look for | Passed |
