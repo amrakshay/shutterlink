@@ -22,6 +22,13 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- **Phases 3–5 — the live preview, remote control, and the photo coming back.** The camera feeds a
+  hardware H.264 encoder directly through its input Surface, so no frame is copied through the CPU;
+  frames are length-prefixed with a resynchronising magic and sent on a separate channel from the
+  control messages. The controller decodes to a SurfaceView and drives zoom, camera switch, timer
+  and shutter by message, never optimistically. Captures are written to the camera phone's gallery
+  first — that copy is the original and survives a failed transfer — then sent across.
+  **Written but not yet run on two phones.**
 - **Phase 2 (in progress) — the two phones find each other.** A `Transport` seam with a Nearby
   Connections implementation behind it (BLE discovery, automatic Wi-Fi Direct upgrade), the
   `Message` protocol with a CBOR codec that drops anything it does not understand rather than

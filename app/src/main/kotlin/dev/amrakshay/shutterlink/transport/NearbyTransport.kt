@@ -21,6 +21,9 @@ import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import java.io.OutputStream
+import java.io.PipedInputStream
+import java.io.PipedOutputStream
 
 private const val TAG = "ShutterLink/Transport"
 
@@ -30,6 +33,9 @@ private const val TAG = "ShutterLink/Transport"
  * part of the wire contract — changing it stops old installs finding new ones.
  */
 private const val SERVICE_ID = "dev.amrakshay.shutterlink"
+
+/** Roughly a second of 720p at 3 Mbps, so a brief stall does not block the encoder. */
+private const val VIDEO_PIPE_BYTES = 512 * 1024
 
 /**
  * [Transport] over Google's Nearby Connections.
@@ -56,6 +62,14 @@ class NearbyTransport(context: Context) : Transport {
     /** Endpoints we know a name for, so events can carry one rather than an opaque id. */
     private val names = mutableMapOf<String, String>()
     private var connected: String? = null
+    private var videoSink: PipedOutputStream? = null
+
+    /**
+     * File payloads in flight. Nearby hands the payload over as soon as the
+     * transfer starts and the bytes only exist once it completes, so the payload
+     * has to be held until the matching transfer update says SUCCESS.
+     */
+    private val arrivingFiles = mutableMapOf<Long, Payload>()
 
     private fun emit(event: TransportEvent) {
         if (!_events.tryEmit(event)) Log.w(TAG, "dropped event $event")
@@ -113,6 +127,17 @@ class NearbyTransport(context: Context) : Transport {
 
     private val payloads = object : PayloadCallback() {
         override fun onPayloadReceived(id: String, payload: Payload) {
+            if (payload.type == Payload.Type.FILE) {
+                arrivingFiles[payload.id] = payload
+                emit(TransportEvent.PhotoArriving(payload.id, -1))
+                return
+            }
+            payload.asStream()?.let { stream ->
+                // The video channel. Handed to the caller as a plain InputStream
+                // so nothing above Transport has to know about Nearby payloads.
+                emit(TransportEvent.VideoAvailable(stream.asInputStream()))
+                return
+            }
             val bytes = payload.asBytes() ?: return
             // Null here means a message type this build does not know, or a
             // damaged payload. Either way it is dropped rather than fatal —
@@ -124,7 +149,33 @@ class NearbyTransport(context: Context) : Transport {
             emit(TransportEvent.Received(id, message))
         }
 
-        override fun onPayloadTransferUpdate(id: String, update: PayloadTransferUpdate) = Unit
+        override fun onPayloadTransferUpdate(id: String, update: PayloadTransferUpdate) {
+            val pending = arrivingFiles[update.payloadId] ?: return
+            when (update.status) {
+                PayloadTransferUpdate.Status.IN_PROGRESS -> {
+                    val total = update.totalBytes
+                    val percent =
+                        if (total > 0) ((update.bytesTransferred * 100) / total).toInt() else -1
+                    emit(TransportEvent.PhotoArriving(update.payloadId, percent))
+                }
+
+                PayloadTransferUpdate.Status.SUCCESS -> {
+                    arrivingFiles.remove(update.payloadId)
+                    val file = pending.asFile()?.asJavaFile()
+                    if (file == null) {
+                        Log.w(TAG, "payload ${update.payloadId} completed with no file")
+                        emit(TransportEvent.PhotoFailed(update.payloadId))
+                    } else {
+                        emit(TransportEvent.PhotoArrived(update.payloadId, file))
+                    }
+                }
+
+                else -> {
+                    arrivingFiles.remove(update.payloadId)
+                    emit(TransportEvent.PhotoFailed(update.payloadId))
+                }
+            }
+        }
     }
 
     override fun advertise(name: String) {
@@ -169,7 +220,38 @@ class NearbyTransport(context: Context) : Transport {
             .addOnFailureListener { emit(TransportEvent.Failed("sending", it)) }
     }
 
+    override fun startVideo(): OutputStream? {
+        val to = connected ?: return null
+        stopVideo()
+        // Nearby reads the stream on its own thread as fast as it can drain it.
+        // The buffer is deliberately generous: a stall here shows up as dropped
+        // frames rather than as the encoder blocking the camera.
+        val sink = PipedOutputStream()
+        val source = PipedInputStream(sink, VIDEO_PIPE_BYTES)
+        videoSink = sink
+        client.sendPayload(to, Payload.fromStream(source))
+            .addOnFailureListener { emit(TransportEvent.Failed("starting the video", it)) }
+        return sink
+    }
+
+    override fun sendPhoto(file: java.io.File): Long? {
+        val to = connected ?: return null
+        val payload = runCatching { Payload.fromFile(file) }.getOrElse {
+            emit(TransportEvent.Failed("sending the photo", it))
+            return null
+        }
+        client.sendPayload(to, payload)
+            .addOnFailureListener { emit(TransportEvent.Failed("sending the photo", it)) }
+        return payload.id
+    }
+
+    override fun stopVideo() {
+        runCatching { videoSink?.close() }
+        videoSink = null
+    }
+
     override fun stop() {
+        stopVideo()
         client.stopAdvertising()
         client.stopDiscovery()
         client.stopAllEndpoints()

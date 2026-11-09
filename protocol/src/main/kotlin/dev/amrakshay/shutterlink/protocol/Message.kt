@@ -54,4 +54,93 @@ sealed interface Message {
     @Serializable
     @SerialName("bye")
     data class Bye(val reason: String) : Message
+
+    // ---- Control. The controller asks; the camera does and reports back. ----
+
+    @Serializable
+    @SerialName("start_preview")
+    data class StartPreview(val width: Int, val height: Int, val fps: Int, val bitrate: Int) : Message
+
+    @Serializable
+    @SerialName("stop_preview")
+    data object StopPreview : Message
+
+    /** 0..1 across the camera's own range, so the controller never has to know its ratios. */
+    @Serializable
+    @SerialName("set_zoom")
+    data class SetZoom(val linear: Float) : Message
+
+    @Serializable
+    @SerialName("switch_camera")
+    data class SwitchCamera(val front: Boolean) : Message
+
+    /** [timerSeconds] of 0 fires immediately. */
+    @Serializable
+    @SerialName("capture")
+    data class Capture(val timerSeconds: Int = 0, val engine: String = ENGINE_SHUTTERLINK) : Message
+
+    @Serializable
+    @SerialName("countdown")
+    data class Countdown(val secondsLeft: Int) : Message
+
+    @Serializable
+    @SerialName("capture_started")
+    data object CaptureStarted : Message
+
+    @Serializable
+    @SerialName("capture_failed")
+    data class CaptureFailed(val reason: String) : Message
+
+    /**
+     * A photo exists on the camera phone. The bytes follow on the file channel;
+     * [payloadId] is how the controller matches the two up, because Nearby
+     * delivers a file payload with no indication of what it was for.
+     */
+    @Serializable
+    @SerialName("photo_ready")
+    data class PhotoReady(
+        val payloadId: Long,
+        val name: String,
+        val bytes: Long,
+        val width: Int,
+        val height: Int,
+    ) : Message
+
+    /** Periodic, so the controller can warn before the far phone dies or cooks. */
+    @Serializable
+    @SerialName("status")
+    data class Status(
+        val batteryPercent: Int,
+        val thermal: String,
+        val streaming: Boolean,
+        val shotsTaken: Int,
+    ) : Message
+
+    /** Which camera apps the far phone has, for the capture-engine picker. */
+    @Serializable
+    @SerialName("engines")
+    data class Engines(val engines: List<CaptureEngine>) : Message
+
+    @Serializable
+    @SerialName("delete_photo")
+    data class DeletePhoto(val name: String) : Message
 }
+
+/** ShutterLink's own camera. Always present, always the one with a live preview. */
+const val ENGINE_SHUTTERLINK: String = "shutterlink"
+
+/**
+ * A camera app on the far phone that the controller may fire.
+ *
+ * [handsPhotoBack] is the difference between the clean path and the messy one:
+ * an app that answers ACTION_IMAGE_CAPTURE returns the photo and control to us
+ * by itself, and one that does not needs the gallery watched and an overlay
+ * permission to get back. The controller shows neither distinction to the user.
+ */
+@Serializable
+data class CaptureEngine(
+    val id: String,
+    val label: String,
+    val handsPhotoBack: Boolean,
+    val tested: Boolean = false,
+)

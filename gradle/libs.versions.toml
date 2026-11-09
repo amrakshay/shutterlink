@@ -43,6 +43,9 @@ kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 kotlinx-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version.ref = "serialization" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+# Test-only. Lets the protocol suite enumerate Message's sealed subclasses, so a
+# message type added without a round-trip test fails the build by name.
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 
 [plugins]

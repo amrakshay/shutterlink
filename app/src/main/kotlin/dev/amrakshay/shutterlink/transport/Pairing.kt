@@ -5,8 +5,12 @@ import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.protocol.Role
 import dev.amrakshay.shutterlink.protocol.isCompatible
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -24,6 +28,10 @@ data class PairingState(
     val connected: Peer? = null,
     val theirCapabilities: Message.Capabilities? = null,
     val latencyMillis: Long? = null,
+    val video: java.io.InputStream? = null,
+    /** -1 while the size is unknown, 100 when done, null when nothing is arriving. */
+    val photoProgress: Int? = null,
+    val arrivedPhoto: java.io.File? = null,
     val problem: String? = null,
     val incompatible: Boolean = false,
 )
@@ -43,6 +51,29 @@ class Pairing(
 ) {
     private val _state = MutableStateFlow(PairingState())
     val state: StateFlow<PairingState> = _state.asStateFlow()
+
+    /**
+     * Control messages as they arrive, for whichever screen is acting on them.
+     * Separate from [state] because these are events — acting on the same
+     * Capture twice because a recomposition replayed it would take two photos.
+     */
+    private val _incoming = MutableSharedFlow<Message>(
+        replay = 0,
+        extraBufferCapacity = 32,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+    val incoming: SharedFlow<Message> = _incoming.asSharedFlow()
+
+    /** Send a control message to the other phone. */
+    fun send(message: Message) = transport.send(message)
+
+    /** Camera phone: open the video channel. */
+    fun startVideo() = transport.startVideo()
+
+    fun stopVideo() = transport.stopVideo()
+
+    /** Camera phone: start sending a captured photo. Returns its payload id. */
+    fun startPhotoTransfer(file: java.io.File): Long? = transport.sendPhoto(file)
 
     private val myName = thisPhoneName()
 
@@ -101,7 +132,22 @@ class Pairing(
                 )
             }
 
-            is TransportEvent.Received -> onMessage(event.message)
+            is TransportEvent.Received -> {
+                onMessage(event.message)
+                _incoming.tryEmit(event.message)
+            }
+
+            is TransportEvent.VideoAvailable -> _state.update { it.copy(video = event.stream) }
+
+            is TransportEvent.PhotoArriving -> _state.update { it.copy(photoProgress = event.percent) }
+
+            is TransportEvent.PhotoArrived -> _state.update {
+                it.copy(photoProgress = null, arrivedPhoto = event.file)
+            }
+
+            is TransportEvent.PhotoFailed -> _state.update {
+                it.copy(photoProgress = null, problem = "That photo did not come over")
+            }
 
             is TransportEvent.Failed -> _state.update {
                 it.copy(problem = "Trouble ${event.doing}: ${event.cause?.message ?: "unknown"}")
@@ -138,6 +184,24 @@ class Pairing(
             is Message.Bye -> _state.update {
                 it.copy(connected = null, problem = "The other phone left: ${message.reason}")
             }
+
+            // Everything below is acted on by whichever screen is in charge, via
+            // `incoming`. Listed rather than lumped into an `else` so that
+            // adding a message type makes the compiler ask where it belongs —
+            // which has already caught two gaps while building this.
+            is Message.StartPreview,
+            Message.StopPreview,
+            is Message.SetZoom,
+            is Message.SwitchCamera,
+            is Message.Capture,
+            is Message.Countdown,
+            Message.CaptureStarted,
+            is Message.CaptureFailed,
+            is Message.PhotoReady,
+            is Message.Status,
+            is Message.Engines,
+            is Message.DeletePhoto,
+            -> Unit
         }
     }
 

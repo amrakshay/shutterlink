@@ -16,6 +16,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlin.reflect)
     testImplementation(libs.kotlinx.coroutines.test)
 }
 

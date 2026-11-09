@@ -171,7 +171,7 @@ Each phase ends in something you can actually run on a phone.
 - `Hello`/`Capabilities` handshake; connection state surfaced in the UI.
 - **Done when:** a control message round-trips between phones and latency is logged.
 
-### Phase 3 — Live preview *(~5 days)* — *the hard one*
+### Phase 3 — Live preview — **written, unverified**
 - Camera side: `ImageAnalysis` (YUV_420_888) → `MediaCodec` H.264 encoder in Surface mode
   (feed the encoder's input Surface directly from CameraX — avoids a YUV copy per frame).
 - Config: 1280×720, 24 fps, ~3 Mbps VBR, 2s keyframe interval, baseline profile for compatibility.
@@ -184,7 +184,7 @@ Each phase ends in something you can actually run on a phone.
   with latency low enough to frame a shot. **Target: under 200 ms glass-to-glass.** If we can't get
   under ~400 ms, I'll tell you plainly and we'll discuss trade-offs rather than quietly shipping lag.
 
-### Phase 4 — Remote control *(~2 days)*
+### Phase 4 — Remote control — **written, unverified**
 - Shutter, zoom (slider + pinch on the controller's viewfinder), camera flip, timer — all driven
   from the controller via `BYTES` messages.
 - Countdown mirrored on both screens; the camera phone beeps/flashes so people being photographed
@@ -192,7 +192,7 @@ Each phase ends in something you can actually run on a phone.
 - Preview stream pauses cleanly during capture and resumes.
 - **Done when:** the controller is a complete remote. The camera phone is never touched.
 
-### Phase 5 — Photo comes back *(~3 days)*
+### Phase 5 — Photo comes back — **written, unverified**
 - `ImageCapture` writes full-res JPEG on the camera phone (always kept there — source of truth).
 - Transferred as a Nearby `FILE` payload with progress shown on the controller.
 - Review screen on the controller: pinch-zoom the result, Keep / Delete / Retake.

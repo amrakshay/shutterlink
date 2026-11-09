@@ -2,6 +2,8 @@ package dev.amrakshay.shutterlink.transport
 
 import dev.amrakshay.shutterlink.protocol.Message
 import kotlinx.coroutines.flow.Flow
+import java.io.InputStream
+import java.io.OutputStream
 
 /** A phone we can see but have not connected to yet. */
 data class Peer(val id: String, val name: String)
@@ -22,6 +24,20 @@ sealed interface TransportEvent {
     data class Connected(val peer: Peer) : TransportEvent
     data class Disconnected(val id: String) : TransportEvent
     data class Received(val from: String, val message: Message) : TransportEvent
+
+    /**
+     * The camera phone has opened its video stream. The controller reads frames
+     * off this until it ends, which is also how it learns the stream stopped.
+     */
+    data class VideoAvailable(val stream: InputStream) : TransportEvent
+
+    /** A photo is on its way. [percent] is -1 while the size is still unknown. */
+    data class PhotoArriving(val payloadId: Long, val percent: Int) : TransportEvent
+
+    /** A photo finished transferring. The file lives in Nearby's own download area. */
+    data class PhotoArrived(val payloadId: Long, val file: java.io.File) : TransportEvent
+
+    data class PhotoFailed(val payloadId: Long) : TransportEvent
 
     /** Something went wrong that the user may need to know about. */
     data class Failed(val doing: String, val cause: Throwable?) : TransportEvent
@@ -58,6 +74,25 @@ interface Transport {
     fun reject(id: String)
 
     fun send(message: Message)
+
+    /**
+     * Camera phone: open the video channel and return the sink to write frames
+     * into, or null if there is nobody connected.
+     *
+     * A separate channel from [send] on purpose. Control messages are small and
+     * must not queue behind a second of video, and the video is a continuous
+     * pipe rather than a series of messages.
+     */
+    fun startVideo(): OutputStream?
+
+    fun stopVideo()
+
+    /**
+     * Camera phone: send a captured photo. Returns the payload id, which goes in
+     * the matching [Message.PhotoReady] — Nearby delivers a file with no
+     * indication of what it was for, so the two are matched by this.
+     */
+    fun sendPhoto(file: java.io.File): Long?
 
     /** Stop everything: advertising, discovery and any live connection. */
     fun stop()

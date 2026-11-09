@@ -68,6 +68,18 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
         }
     }
 
+    // Once connected, the live screens take the whole window. They are drawn
+    // outside the padded Box below on purpose: a viewfinder inset by 24dp and
+    // the system bars is not a viewfinder.
+    if (state.connected != null && !state.incompatible && state.pending == null) {
+        if (role == Role.CAMERA) {
+            CameraRigScreen(pairing = pairing, onEnd = onBack)
+        } else {
+            RemoteViewfinderScreen(pairing = pairing, state = state, onBack = onBack)
+        }
+        return
+    }
+
     Box(
         Modifier
             .fillMaxSize()
@@ -83,13 +95,6 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
                 code = state.pending!!.second,
                 onYes = pairing::confirm,
                 onNo = pairing::deny,
-            )
-
-            state.connected != null -> Connected(
-                name = state.connected!!.name,
-                latency = state.latencyMillis,
-                theirs = state.theirCapabilities?.deviceName,
-                onBack = onBack,
             )
 
             role == Role.CAMERA -> Waiting(onBack, onUseAlone)
@@ -228,51 +233,6 @@ private fun Confirm(peer: Peer, code: String, onYes: () -> Unit, onNo: () -> Uni
     }
 }
 
-@Composable
-private fun Connected(name: String, latency: Long?, theirs: String?, onBack: () -> Unit) {
-    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(70.dp))
-        Row(
-            modifier = Modifier
-                .background(Ink.AccentWell, CircleShape)
-                .border(1.dp, Ink.Accent, CircleShape)
-                .padding(horizontal = 16.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.size(8.dp).background(Ink.Accent, CircleShape))
-            Spacer(Modifier.width(9.dp))
-            Text("Connected", color = Ink.Accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-        }
-        Spacer(Modifier.height(28.dp))
-        Heading(name)
-        Spacer(Modifier.height(10.dp))
-        Body(
-            if (theirs != null) "Handshake done — it told us it is $theirs."
-            else "Connected. Waiting for it to say what it can do…",
-        )
-        Spacer(Modifier.height(26.dp))
-        Column(
-            modifier = Modifier
-                .background(Ink.SurfaceDim, RoundedCornerShape(16.dp))
-                .border(1.dp, Ink.Line, RoundedCornerShape(16.dp))
-                .padding(horizontal = 26.dp, vertical = 18.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("ROUND TRIP", color = Ink.Faint, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-            Text(
-                latency?.let { "$it ms" } ?: "—",
-                color = Ink.Text,
-                fontSize = 26.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
-        Spacer(Modifier.height(16.dp))
-        Body("The live view arrives in Phase 3.")
-        Spacer(Modifier.weight(1f))
-        Secondary("Disconnect", onBack)
-    }
-}
 
 @Composable
 private fun Incompatible(onBack: () -> Unit) {
