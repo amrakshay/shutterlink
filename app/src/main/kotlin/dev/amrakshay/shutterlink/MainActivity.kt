@@ -21,7 +21,8 @@ import dev.amrakshay.shutterlink.protocol.Role
 import dev.amrakshay.shutterlink.ui.CameraPermission
 import dev.amrakshay.shutterlink.ui.CameraScreen
 import dev.amrakshay.shutterlink.ui.Ink
-import dev.amrakshay.shutterlink.ui.NotYetScreen
+import dev.amrakshay.shutterlink.ui.NearbyPermissionGate
+import dev.amrakshay.shutterlink.ui.PairingScreen
 import dev.amrakshay.shutterlink.ui.RolePickerScreen
 import dev.amrakshay.shutterlink.ui.ShutterLinkTheme
 import kotlinx.coroutines.flow.first
@@ -57,6 +58,9 @@ private fun App() {
     var role by remember { mutableStateOf<Role?>(null) }
     var decided by remember { mutableStateOf(false) }
 
+    // Phase 1's standalone camera, still reachable from the waiting screen.
+    var alone by remember { mutableStateOf(false) }
+
     LaunchedEffect(Unit) {
         role = store.role.first()
         decided = true
@@ -81,8 +85,24 @@ private fun App() {
             if (remember) scope.launch { store.remember(picked) }
         }
 
-        Role.CAMERA -> CameraPermission { CameraScreen(onBack = ::leave) }
+        // The camera still needs its own camera permission before the preview,
+        // but pairing comes first: there is nothing to point it at otherwise.
+        Role.CAMERA -> NearbyPermissionGate {
+            CameraPermission {
+                if (alone) {
+                    CameraScreen(onBack = { alone = false })
+                } else {
+                    PairingScreen(
+                        role = Role.CAMERA,
+                        onBack = ::leave,
+                        onUseAlone = { alone = true },
+                    )
+                }
+            }
+        }
 
-        Role.CONTROLLER -> NotYetScreen(onBack = ::leave)
+        Role.CONTROLLER -> NearbyPermissionGate {
+            PairingScreen(Role.CONTROLLER, onBack = ::leave)
+        }
     }
 }

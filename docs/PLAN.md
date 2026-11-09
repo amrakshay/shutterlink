@@ -159,7 +159,7 @@ Each phase ends in something you can actually run on a phone.
 - Saves to MediaStore, visible in Gallery.
 - **Done when:** the app is a usable standalone camera. Everything after this adds remoteness.
 
-### Phase 2 — Transport *(~4 days)* ⟵ *needs the second phone*
+### Phase 2 — Transport — **built, half-verified** *(see §12)*
 - `Transport` interface: `advertise()`, `discover()`, `connect()`, `send()`, `onReceive`, `onStateChange`.
 - `NearbyTransport` on `P2P_POINT_TO_POINT`.
 - Permission matrix handled properly — this is the biggest source of silent failure:
@@ -568,6 +568,11 @@ up to date — CONTRIBUTING.md asks PRs to.
 | 2026-11-09 | OnePlus 7 | Phase 1: zoom stops offered match the device's range (no 0.6× — this camera's min zoom is 1.0) | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 1: front/back flip switches cameras; front preview and front capture both work | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 1: capture rotation follows the physical phone, not the locked-portrait activity | Passed — a sideways-held shot saved 4000×3000 with EXIF orientation 1 and renders upright. Before the fix a portrait-held shot was tagged orientation 7 (mirrored **and** rotated 90°) |
+| 2026-11-09 | OnePlus 7 | Phase 2: the permission list is computed from the running Android version — on API 29 it asks for Location only, with the reason on screen, and never for the API 31+ Bluetooth permissions | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 2: Nearby advertising starts — `startAdvertising` succeeds over BLE/Bluetooth/WIFI_LAN with Wi-Fi Direct among the upgrade mediums | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 2: the waiting screen shows the name the other phone should look for | Passed |
+| 2026-11-09 | macOS | The built APK carries **no INTERNET permission**; CI now fails if one appears | Passed |
+| 2026-11-09 | — | Phase 2: discovery, connecting, the confirmation code, the Hello/Capabilities handshake and the ping round trip | **Untested — needs the second phone** |
 
 ### Not verified, and blocking which phase
 

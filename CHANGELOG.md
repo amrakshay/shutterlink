@@ -22,6 +22,13 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- **Phase 2 (in progress) — the two phones find each other.** A `Transport` seam with a Nearby
+  Connections implementation behind it (BLE discovery, automatic Wi-Fi Direct upgrade), the
+  `Message` protocol with a CBOR codec that drops anything it does not understand rather than
+  breaking the link, a version-aware permission screen that states why each one is needed, and the
+  pairing flow — advertise, discover, confirm a four-digit code on both phones, handshake, measure
+  the round trip. Advertising and the permission flow are verified on hardware; everything from
+  discovery onwards needs a second phone.
 - **Phase 1 — the standalone camera.** Role picker (remembered per phone), CameraX preview,
   shutter, pinch and stepped zoom bounded by what the device actually reports, a 0/3/10s self-timer
   with an on-screen countdown, front/back switching, and the last shot as a thumbnail. Capture
