@@ -8,11 +8,11 @@ composeBom = "2026.09.00"
 coroutines = "1.11.0"
 serialization = "1.9.0"
 # CameraX: the camera on the far phone, and the still capture.
-camerax = "1.5.0"
+camerax = "1.6.2"
 # Nearby Connections — BLE discovery with an automatic Wi-Fi Direct upgrade.
 # See docs/PLAN.md §3 for why this rather than raw WifiP2pManager.
 nearby = "19.3.0"
-datastore = "1.1.7"
+datastore = "1.3.0"
 junit = "4.13.2"
 
 [libraries]

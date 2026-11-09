@@ -151,7 +151,7 @@ Each phase ends in something you can actually run on a phone.
 - `scripts/dev.sh` — build, install to both devices by serial, tail filtered logcat.
 - **Done when:** empty app installs and launches on the OnePlus 7.
 
-### Phase 1 — Standalone camera *(~3 days)* ⟵ *testable today with one phone*
+### Phase 1 — Standalone camera — **done** *(see §12)*
 - Role picker screen (Camera / Controller), remembered in DataStore.
 - CameraX `Preview` + `ImageCapture`, lifecycle-bound.
 - Front/back switch, pinch-to-zoom + zoom slider, 0/3/10s self-timer.
@@ -560,6 +560,14 @@ up to date — CONTRIBUTING.md asks PRs to.
 | 2026-11-09 | OnePlus 7 | Phase 0 **release** APK (R8-minified, signed) installs, launches, no crash | Passed |
 | 2026-11-09 | macOS | Release signing chain: Keychain → `tools/release-env.sh` → `assembleRelease` → `apksigner` reports `CN=shutterlink` | Passed |
 | 2026-11-09 | macOS | Keychain round-trip: the stored base64 rebuilds a keystore the stored password opens | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: role picker renders, choice remembered | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: CameraX preview binds and runs | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: capture writes a 3.6 MB JPEG to `DCIM/ShutterLink`, `is_pending` cleared, visible in MediaStore | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: 3s timer counts down on screen, then fires | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: last-shot thumbnail appears after a capture | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: zoom stops offered match the device's range (no 0.6× — this camera's min zoom is 1.0) | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: front/back flip switches cameras; front preview and front capture both work | Passed |
+| 2026-11-09 | OnePlus 7 | Phase 1: capture rotation follows the physical phone, not the locked-portrait activity | Passed — a sideways-held shot saved 4000×3000 with EXIF orientation 1 and renders upright. Before the fix a portrait-held shot was tagged orientation 7 (mirrored **and** rotated 90°) |
 
 ### Not verified, and blocking which phase
 

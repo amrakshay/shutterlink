@@ -22,6 +22,13 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- **Phase 1 — the standalone camera.** Role picker (remembered per phone), CameraX preview,
+  shutter, pinch and stepped zoom bounded by what the device actually reports, a 0/3/10s self-timer
+  with an on-screen countdown, front/back switching, and the last shot as a thumbnail. Capture
+  orientation follows the physical phone rather than the locked-portrait window — a propped-up
+  camera gets turned on its side constantly, and without this every such shot saved rotated. Photos are written straight into
+  `DCIM/ShutterLink` through MediaStore, so they belong to you rather than to the app and need no
+  storage permission on API 29+. The controller half says plainly that it is not built yet.
 - [`design/`](design/) — sixteen UI mocks the app is being built against, viewable in a browser,
   and the small set of rules they follow (dark throughout, one accent colour, awkward constraints
   stated on the screen where they happen).
