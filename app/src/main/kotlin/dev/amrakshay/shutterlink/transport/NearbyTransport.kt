@@ -191,7 +191,7 @@ class NearbyTransport(context: Context) : Transport {
             AdvertisingOptions.Builder().setStrategy(Strategy.P2P_POINT_TO_POINT).build(),
         )
             .addOnSuccessListener { Log.i(TAG, "advertising as $name") }
-            .addOnFailureListener { emit(TransportEvent.Failed("advertising", it)) }
+            .addOnFailureListener { reportUnlessAlreadyBusy("advertising", it) }
     }
 
     override fun discover() {
@@ -201,7 +201,29 @@ class NearbyTransport(context: Context) : Transport {
             DiscoveryOptions.Builder().setStrategy(Strategy.P2P_POINT_TO_POINT).build(),
         )
             .addOnSuccessListener { Log.i(TAG, "discovering") }
-            .addOnFailureListener { emit(TransportEvent.Failed("looking for phones", it)) }
+            .addOnFailureListener { reportUnlessAlreadyBusy("looking for phones", it) }
+    }
+
+    /**
+     * Surfaces a transport failure, except the two that mean "you are already
+     * doing that".
+     *
+     * The reconnect loop calls advertise() or discover() on every attempt
+     * without stopping the previous one, so Nearby answers
+     * STATUS_ALREADY_ADVERTISING / STATUS_ALREADY_DISCOVERING. That is not a
+     * failure — it is confirmation that the thing we want is running — but it
+     * was being shown to the user as "Trouble looking for phones: 8002", which
+     * reads as broken while the app is working correctly.
+     */
+    private fun reportUnlessAlreadyBusy(doing: String, cause: Throwable) {
+        val code = (cause as? com.google.android.gms.common.api.ApiException)?.statusCode
+        if (code == ConnectionsStatusCodes.STATUS_ALREADY_ADVERTISING ||
+            code == ConnectionsStatusCodes.STATUS_ALREADY_DISCOVERING
+        ) {
+            Log.i(TAG, "already $doing — nothing to do")
+            return
+        }
+        emit(TransportEvent.Failed(doing, cause))
     }
 
     override fun requestConnection(localName: String, peer: Peer) {

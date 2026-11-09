@@ -66,7 +66,6 @@ import java.io.File
  */
 @Composable
 fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
-    KeepScreenOn()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -91,13 +90,35 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
     // answering pings while the picture stayed frozen. That reads as a broken
     // app rather than a sleeping one.
     var bindEpoch by remember { mutableIntStateOf(0) }
-    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
-    DisposableEffect(lifecycle) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) bindEpoch++
+
+    // Rebuilt on the screen coming back, not on ON_RESUME.
+    //
+    // Measured: with the app in the foreground and nothing else competing, the
+    // stream stops when the screen goes off and the activity never leaves
+    // RESUMED — so a lifecycle observer never fires. What actually happens is
+    // that the system takes the camera away when the device locks, which CameraX
+    // cannot undo by itself once the encoder's input surface has gone with it.
+    //
+    // ACTION_SCREEN_ON and ACTION_USER_PRESENT are the events that do arrive, so
+    // the whole pipeline — encoder, binding, video channel — is rebuilt from
+    // there.
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                bindEpoch++
+            }
         }
-        lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_USER_PRESENT)
+        }
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
+        onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
     var lastFacts by remember { mutableStateOf<dev.amrakshay.shutterlink.camera.CameraFacts?>(null) }
 
@@ -184,8 +205,16 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
         pairing.send(Message.Engines(CaptureEngines.discover(context)))
     }
 
-    // The phone can be turned over mid-session, so the angle is not a one-off.
-    LaunchedEffect(rotation) {
+    // Keyed on BOTH, and that matters.
+    //
+    // CameraX reports the angle asynchronously, usually after bindForStreaming
+    // has already returned and sent Capabilities — so the first Capabilities
+    // carries 0. Keyed on `rotation` alone, this resend fired while lastFacts
+    // was still null, returned early, and never ran again: the controller was
+    // left believing the picture was upright and displayed it on its side.
+    //
+    // It also covers the phone being turned over mid-session.
+    LaunchedEffect(rotation, lastFacts) {
         val facts = lastFacts ?: return@LaunchedEffect
         pairing.send(
             Message.Capabilities(

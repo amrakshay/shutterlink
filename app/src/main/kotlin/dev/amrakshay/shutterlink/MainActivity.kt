@@ -21,6 +21,7 @@ import dev.amrakshay.shutterlink.protocol.Role
 import dev.amrakshay.shutterlink.ui.CameraPermission
 import dev.amrakshay.shutterlink.ui.CameraScreen
 import dev.amrakshay.shutterlink.ui.Ink
+import dev.amrakshay.shutterlink.ui.KeepScreenOn
 import dev.amrakshay.shutterlink.ui.NearbyPermissionGate
 import dev.amrakshay.shutterlink.ui.PairingScreen
 import dev.amrakshay.shutterlink.ui.RolePickerScreen
@@ -65,6 +66,12 @@ private fun App() {
         role = store.role.first()
         decided = true
     }
+
+    // Held for the whole app, not per screen. Every screen here is either
+    // pointing a camera at something or watching one, and in both cases nobody
+    // is touching the phone — that is the entire point of it. A screen that
+    // locks mid-session drops the camera with it.
+    KeepScreenOn()
 
     if (!decided) {
         Box(Modifier.fillMaxSize().background(Ink.Ground))

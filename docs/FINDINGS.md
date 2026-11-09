@@ -20,7 +20,10 @@ opposite ends of the permission regime.
 | 5 | Top chips stack one letter per line | Row overflow on a 720px screen | **Fixed** |
 | 6 | "That image could not be opened" | Scoped storage blocks Nearby's download path | **Fixed** |
 | 7 | Filename shown as `-4709986883054979248` | Nearby names files after the payload id | **Fixed** |
-| 8 | Stream dies when the screen locks | CameraX bound to the activity lifecycle | **Partly fixed** — see below |
+| 8 | Stream stops when the screen goes off | The system takes the camera when the device locks | **Fix written, untested** |
+| 9 | "Trouble looking for phones: 8002" shown as an error | Reconnect re-calls `discover()`; Nearby answers ALREADY_DISCOVERING | **Fixed** |
+| 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
+| 11 | Preview slow to start and lagging at first | Not yet diagnosed | **Open** — see VERIFY.md §5b |
 
 ---
 
@@ -129,11 +132,25 @@ The cause is structural: CameraX is bound to the activity's lifecycle, and the
 screen going off stops the activity, which unbinds the camera. The foreground
 service keeps the *process* alive, not the camera.
 
-What is **not** established is whether it recovers when the phone is woken. The
-test was confounded: on this phone another app (YouTube) kept taking the
-foreground on wake, so ShutterLink's activity was never resumed and the
-resume-rebind could not have run. Do not read the frozen counter after wake as
-proof the rebind fails — it was never given the chance.
+Re-tested with **nothing else competing for the foreground** — the earlier run
+was confounded by another app taking the screen on wake, so that result was
+discarded. Clean result, app verified in the foreground throughout:
+
+```
+before:        5385 f
+after 20s off: 5450 f    (+65 — buffered frames draining, then still)
+after wake:    5450 f    (frozen)
+10s later:     5450 f    (still frozen)
+```
+
+So it does **not** recover on its own. More interesting is *why*: the activity
+never leaves RESUMED when the screen goes off, so a lifecycle observer on
+ON_RESUME never fires at all. The camera is not being unbound by CameraX — it is
+being **taken away by the system** when the device locks, and CameraX cannot get
+it back by itself once the encoder's input surface has gone with it.
+
+That makes the lifecycle the wrong thing to watch. `ACTION_SCREEN_ON` and
+`ACTION_USER_PRESENT` are the events that actually arrive.
 
 ### What has been done
 
@@ -158,3 +175,36 @@ not as a bug waiting to be rediscovered.
 Make sure no other app can take the foreground on the camera phone, then: open
 ShutterLink, connect, press power, wait 20s, press power again and unlock.
 Watch the controller's frame counter across all three stages.
+
+## 9 · "Already discovering" is not a failure
+
+The reconnect loop calls `advertise()` or `discover()` on each attempt without
+stopping the previous one, so Nearby answers `8002 STATUS_ALREADY_DISCOVERING`
+(or `8001` for advertising). That is confirmation the thing we want is already
+running — but it was surfaced to the user as "Trouble looking for phones: 8002",
+which reads as broken while the app is working correctly. Both codes are now
+treated as success.
+
+## 10 · The orientation arrived after the message that carried it
+
+The camera sends its rotation inside `Capabilities`, but CameraX reports that
+angle **asynchronously** — normally after `bindForStreaming` has returned and
+the message has gone, so the first `Capabilities` says 0°. The re-send was keyed
+only on the angle and was guarded on camera facts that were not populated yet,
+so it bailed out early and never ran again: the controller believed the picture
+was upright and drew it on its side.
+
+It worked when first tested and broke later, because which of two asynchronous
+events landed first was down to timing. Keying the re-send on **both** the angle
+and the facts fixes it.
+
+The lesson is not about rotation. Anything derived from an async callback must
+not be captured once at setup time and assumed final.
+
+## 11 · The preview is slow to start — **open**
+
+Frames arrive slowly at first and the picture lags behind reality before
+settling. Not yet measured. Candidate causes and how to tell them apart are in
+VERIFY.md §5b; the shortlist is the 512 KB stream buffer, the one-second
+keyframe interval gating the decoder's first config, and Nearby's
+Bluetooth-to-Wi-Fi upgrade happening after streaming has already begun.

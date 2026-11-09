@@ -65,7 +65,6 @@ private val TIMERS = listOf(0, 3, 10)
  */
 @Composable
 fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> Unit) {
-    KeepScreenOn()
     var decoder by remember { mutableStateOf<VideoDecoder?>(null) }
     var health by remember { mutableStateOf(StreamHealth()) }
     var zoom by remember { mutableStateOf(0f) }
