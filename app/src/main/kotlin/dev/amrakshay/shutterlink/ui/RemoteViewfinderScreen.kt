@@ -41,8 +41,12 @@ import dev.amrakshay.shutterlink.camera.StreamHealth
 import dev.amrakshay.shutterlink.camera.VideoDecoder
 import dev.amrakshay.shutterlink.protocol.ENGINE_SHUTTERLINK
 import dev.amrakshay.shutterlink.protocol.Message
+import dev.amrakshay.shutterlink.transport.HidShutter
 import dev.amrakshay.shutterlink.transport.Pairing
 import dev.amrakshay.shutterlink.transport.PairingState
+import dev.amrakshay.shutterlink.transport.ShutterKey
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
 import java.io.InputStream
 
 private val TIMERS = listOf(0, 3, 10)
@@ -67,6 +71,40 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
     var engine by remember { mutableStateOf(ENGINE_SHUTTERLINK) }
     var pickingEngine by remember { mutableStateOf(false) }
 
+    // Firing another camera app needs a keystroke, because its shutter button is
+    // inside its own sandbox and nothing can reach it. This phone becomes a
+    // Bluetooth keyboard to send one — the same trick a selfie remote uses.
+    // Only set up when a third-party engine is actually chosen: registering as
+    // an HID device is intrusive and most sessions never need it.
+    val context = LocalContext.current
+    val hid = remember { HidShutter(context) }
+    var hidReady by remember { mutableStateOf(false) }
+    var hidProblem by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(engine) {
+        if (engine == ENGINE_SHUTTERLINK || hidReady) return@LaunchedEffect
+        if (!hid.supported()) {
+            hidProblem = "This phone cannot act as a Bluetooth keyboard"
+            return@LaunchedEffect
+        }
+        hid.register { ok ->
+            hidReady = ok
+            if (!ok) hidProblem = "Could not register as a keyboard"
+        }
+        // The far phone has to be paired in Bluetooth settings, not merely
+        // connected by ShutterLink — HID runs over classic Bluetooth.
+        val target = hid.pairedDevices().firstOrNull {
+            it.name != null && it.name == state.connected?.name
+        }
+        if (target == null) {
+            hidProblem = "Pair the two phones in Bluetooth settings first"
+        } else {
+            hid.connectTo(target)
+        }
+    }
+
+    DisposableEffect(Unit) { onDispose { hid.release() } }
+
     val stream: InputStream? = state.video
 
     // Decoding starts only when both halves exist: the Surface the SurfaceView
@@ -88,7 +126,20 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
         pairing.incoming.collect { message ->
             when (message) {
                 is Message.Countdown -> countdown = message.secondsLeft
-                Message.CaptureStarted -> { countdown = null; capturing = true }
+                Message.CaptureStarted -> {
+                    countdown = null
+                    capturing = true
+                    if (engine != ENGINE_SHUTTERLINK) {
+                        // The far phone has opened the other camera app. Give it
+                        // a moment to actually have the camera — firing early
+                        // does nothing at all — then press its shutter for it.
+                        delay(2500)
+                        if (!hid.press(ShutterKey.VOLUME_UP)) {
+                            hidProblem = "Could not reach the other phone's shutter"
+                            capturing = false
+                        }
+                    }
+                }
                 is Message.CaptureFailed -> capturing = false
                 is Message.PhotoReady -> capturing = false
                 else -> Unit
@@ -294,6 +345,15 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
                 modifier = Modifier
                     .clickable { timer = TIMERS[(TIMERS.indexOf(timer) + 1) % TIMERS.size] }
                     .padding(8.dp),
+            )
+        }
+
+        hidProblem?.takeIf { engine != ENGINE_SHUTTERLINK }?.let {
+            Text(
+                it,
+                color = Ink.Warning,
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 96.dp),
             )
         }
 

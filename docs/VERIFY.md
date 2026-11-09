@@ -91,9 +91,16 @@ deliberately: start a capture and walk out of range.
 
 ## 6 — Phases 2.5 and 5.5: other camera apps
 
-**This is the least certain part of the project.** Two things are unknown:
-whether each phone will act as a Bluetooth HID device at all, and whether a
-given camera app honours the key.
+**This is the least certain part of the project.** Three things are unknown:
+whether each phone will act as a Bluetooth HID device at all, whether a given
+camera app honours the key, and whether 2.5 seconds is long enough for the
+chosen app to have taken the camera before the key is sent.
+
+That last one is a fixed delay, which is the weakest part of this design. §11 of
+the plan calls for detecting readiness with `PACKAGE_USAGE_STATS` instead; that
+was not built, because it adds a permission for something that cannot be tested
+without two phones. **If the shutter fires too early, this delay is the first
+thing to look at** — it is one constant in `RemoteViewfinderScreen`.
 
 | Check | What good looks like |
 |---|---|
