@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Settings</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+    a { color: #5AC8E8; } a:hover { color: #8FDCF0; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B0E12; color: #F2F5F7; display: flex; flex-direction: column;">
+
+  <div style="padding: 50px 20px 12px; display: flex; align-items: center; gap: 12px;">
+    <a href="Viewfinder.dc.html" aria-label="Back" style="width: 38px; height: 38px; border-radius: 50%; background: #161B21; border: 1px solid #262F38; display: flex; align-items: center; justify-content: center;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M15 5l-7 7 7 7" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+      </svg>
+    </a>
+    <h1 style="margin: 0; font-size: 21px; font-weight: 700; letter-spacing: -0.02em;">Settings</h1>
+  </div>
+
+  <div style="flex-grow: 1; overflow: hidden; padding: 10px 20px 0;">
+
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6D7A85; margin: 10px 0 10px;">Preview</div>
+    <div style="background: #12171C; border: 1px solid #222A33; border-radius: 15px; overflow: hidden;">
+      <div style="padding: 15px; border-bottom: 1px solid #1C242B;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px;">
+          <span style="font-size: 14px; font-weight: 500;">Quality</span>
+          <span style="font-size: 13px; color: #A3AFBA;">720p · 24 fps</span>
+        </div>
+        <div style="display: flex; gap: 7px;">
+          <button type="button" style="flex: 1 1 0; padding: 9px 0; border-radius: 10px; border: 1px solid #2A333C; background: transparent; color: #A3AFBA; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer;">480p</button>
+          <button type="button" style="flex: 1 1 0; padding: 9px 0; border-radius: 10px; border: 1px solid #5AC8E8; background: #11262F; color: #5AC8E8; font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;">720p</button>
+          <button type="button" style="flex: 1 1 0; padding: 9px 0; border-radius: 10px; border: 1px solid #2A333C; background: transparent; color: #A3AFBA; font-size: 12px; font-weight: 600; font-family: inherit; cursor: pointer;">1080p</button>
+        </div>
+        <div style="font-size: 11px; line-height: 1.45; color: #6D7A85; margin-top: 9px;">Higher quality drains the far phone faster and warms it up.</div>
+      </div>
+      <label style="display: flex; align-items: center; gap: 13px; padding: 15px; cursor: pointer;">
+        <div style="flex-grow: 1;">
+          <div style="font-size: 14px; font-weight: 500;">Drop quality automatically</div>
+          <div style="font-size: 12px; color: #7D8B97; margin-top: 2px;">When the link struggles or the phone heats up</div>
+        </div>
+        <input type="checkbox" checked style="width: 20px; height: 20px; accent-color: #5AC8E8; margin: 0;">
+      </label>
+    </div>
+
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6D7A85; margin: 22px 0 10px;">Photos</div>
+    <div style="background: #12171C; border: 1px solid #222A33; border-radius: 15px; overflow: hidden;">
+      <label style="display: flex; align-items: center; gap: 13px; padding: 15px; border-bottom: 1px solid #1C242B; cursor: pointer;">
+        <div style="flex-grow: 1;">
+          <div style="font-size: 14px; font-weight: 500;">Save received photos to gallery</div>
+          <div style="font-size: 12px; color: #7D8B97; margin-top: 2px;">Off: they stay in the review screen until you tap Save</div>
+        </div>
+        <input type="checkbox" style="width: 20px; height: 20px; accent-color: #5AC8E8; margin: 0;">
+      </label>
+      <div style="display: flex; align-items: center; gap: 13px; padding: 15px;">
+        <div style="flex-grow: 1;"><div style="font-size: 14px; font-weight: 500;">Default timer</div></div>
+        <span style="font-size: 13px; color: #A3AFBA;">3 seconds</span>
+      </div>
+    </div>
+
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6D7A85; margin: 22px 0 10px;">Other camera apps</div>
+    <div style="background: #12171C; border: 1px solid #222A33; border-radius: 15px; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 13px; padding: 15px; border-bottom: 1px solid #1C242B;">
+        <div style="flex-grow: 1;">
+          <div style="font-size: 14px; font-weight: 500;">Shutter key</div>
+          <div style="font-size: 12px; color: #7D8B97; margin-top: 2px;">Which key is sent to fire them</div>
+        </div>
+        <span style="font-size: 13px; color: #A3AFBA;">Volume up</span>
+      </div>
+      <label style="display: flex; align-items: center; gap: 13px; padding: 15px; cursor: pointer;">
+        <div style="flex-grow: 1;">
+          <div style="font-size: 14px; font-weight: 500;">Show untested apps</div>
+          <div style="font-size: 12px; color: #7D8B97; margin-top: 2px;">They may ignore the remote shutter</div>
+        </div>
+        <input type="checkbox" checked style="width: 20px; height: 20px; accent-color: #5AC8E8; margin: 0;">
+      </label>
+    </div>
+
+    <div style="font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #6D7A85; margin: 22px 0 10px;">Diagnostics</div>
+    <div style="background: #12171C; border: 1px solid #222A33; border-radius: 15px;">
+      <label style="display: flex; align-items: center; gap: 13px; padding: 15px; cursor: pointer;">
+        <div style="flex-grow: 1;">
+          <div style="font-size: 14px; font-weight: 500;">Show latency overlay</div>
+          <div style="font-size: 12px; color: #7D8B97; margin-top: 2px;">fps, bitrate, dropped frames</div>
+        </div>
+        <input type="checkbox" style="width: 20px; height: 20px; accent-color: #5AC8E8; margin: 0;">
+      </label>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

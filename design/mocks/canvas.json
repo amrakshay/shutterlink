@@ -1,0 +1,53 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-09T16:00:00Z" },
+  "title": "ShutterLink UI Mocks",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "1 · Role picker" },
+    "CameraWaiting.dc.html": { "x": 470, "y": 0, "w": 390, "h": 844, "title": "2 · Camera waiting" },
+    "ControllerFind.dc.html": { "x": 940, "y": 0, "w": 390, "h": 844, "title": "3 · Finding phones" },
+    "PairConfirm.dc.html": { "x": 1410, "y": 0, "w": 390, "h": 844, "title": "4 · Confirm code" },
+    "Viewfinder.dc.html": { "x": 0, "y": 1244, "w": 390, "h": 844, "title": "5 · Viewfinder" },
+    "EnginePicker.dc.html": { "x": 470, "y": 1244, "w": 390, "h": 844, "title": "6 · Capture with" },
+    "Countdown.dc.html": { "x": 940, "y": 1244, "w": 390, "h": 844, "title": "7 · Countdown" },
+    "Review.dc.html": { "x": 1410, "y": 1244, "w": 390, "h": 844, "title": "8 · Review" },
+    "CameraLive.dc.html": { "x": 0, "y": 2488, "w": 390, "h": 844, "title": "9 · Camera, live" },
+    "Icon.dc.html": { "x": 470, "y": 2488, "w": 880, "h": 560, "title": "10 · App icon" },
+    "Permissions.dc.html": { "x": 0, "y": 3732, "w": 390, "h": 844, "title": "11 · Permissions" },
+    "ThirdPartyShooting.dc.html": { "x": 470, "y": 3732, "w": 390, "h": 844, "title": "12 · Another app shooting" },
+    "Transferring.dc.html": { "x": 940, "y": 3732, "w": 390, "h": 844, "title": "13 · Photo arriving" },
+    "Disconnected.dc.html": { "x": 1410, "y": 3732, "w": 390, "h": 844, "title": "14 · Disconnected" },
+    "Settings.dc.html": { "x": 1880, "y": 3732, "w": 390, "h": 844, "title": "15 · Settings" },
+    "Unsupported.dc.html": { "x": 2350, "y": 3732, "w": 390, "h": 844, "title": "16 · Phone unsupported" }
+  },
+  "order": [
+    "Main.dc.html",
+    "CameraWaiting.dc.html",
+    "ControllerFind.dc.html",
+    "PairConfirm.dc.html",
+    "Viewfinder.dc.html",
+    "EnginePicker.dc.html",
+    "Countdown.dc.html",
+    "Review.dc.html",
+    "CameraLive.dc.html",
+    "Icon.dc.html",
+    "Permissions.dc.html",
+    "ThirdPartyShooting.dc.html",
+    "Transferring.dc.html",
+    "Disconnected.dc.html",
+    "Settings.dc.html",
+    "Unsupported.dc.html"
+  ],
+  "notes": {
+    "t1": { "x": 0, "y": -260, "text": "Setting up — pairing the two phones", "kind": "title1", "maxW": 1800 },
+    "t2": { "x": 0, "y": 984, "text": "Shooting — the phone in your hand", "kind": "title1", "maxW": 1800 },
+    "t3": { "x": 0, "y": 2228, "text": "The far phone, and the app icon", "kind": "title1", "maxW": 1350 },
+    "n1": { "x": 1870, "y": 0, "w": 300, "text": "Dark UI throughout: these screens are used with a camera running, often in low light, and a bright screen on the far phone would light the subject.", "fill": "blue" },
+    "n2": { "x": 1870, "y": 1244, "w": 300, "text": "Screen 5 is the one that matters. Everything else exists to get you here and back out again.", "fill": "teal" },
+    "t4": { "x": 0, "y": 3472, "text": "The screens that decide whether people keep using it", "kind": "title1", "maxW": 2740 },
+    "n3": { "x": 2870, "y": 3732, "w": 300, "text": "Permissions and disconnection are where apps like this are abandoned. Worth designing before the happy path is built, not after.", "fill": "orange" }
+  },
+  "designSystems": []
+}

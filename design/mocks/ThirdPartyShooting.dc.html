@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Another app is shooting</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+    a { color: #5AC8E8; } a:hover { color: #8FDCF0; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #06090C; color: #FFFFFF; position: relative; overflow: hidden;">
+
+  <div style="position: absolute; inset: 0; background: linear-gradient(170deg, #1B2026 0%, #0C1014 100%);"></div>
+
+  <div style="position: absolute; left: 20px; right: 20px; top: 150px; height: 300px; border-radius: 18px; border: 1px dashed #2C363F; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M3 3l18 18" stroke="#55626D" stroke-width="1.8" stroke-linecap="round"></path>
+      <path d="M21 17V8.5a2 2 0 0 0-2-2h-5.2" stroke="#55626D" stroke-width="1.8" stroke-linecap="round"></path>
+      <path d="M7.5 6.5H5a2 2 0 0 0-2 2V17a2 2 0 0 0 2 2h12" stroke="#55626D" stroke-width="1.8" stroke-linecap="round"></path>
+    </svg>
+    <div style="font-size: 14px; font-weight: 600; color: #8C99A4;">Live view paused</div>
+    <div style="font-size: 13px; line-height: 1.5; color: #6D7A85; text-align: center; max-width: 250px;">OnePlus Camera is holding the camera, so nothing can stream from it right now.</div>
+  </div>
+
+  <div style="position: absolute; left: 20px; right: 20px; top: 486px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+    <div style="display: flex; align-items: center; gap: 10px; background: #152028; border: 1px solid #2E6275; border-radius: 999px; padding: 11px 20px;">
+      <span style="width: 9px; height: 9px; border-radius: 50%; background: #5AC8E8;"></span>
+      <span style="font-size: 14px; font-weight: 600;">OnePlus Camera is taking the photo</span>
+    </div>
+    <div style="font-size: 13px; line-height: 1.55; color: #A3AFBA; text-align: center; max-width: 290px;">The far phone has not moved, so your framing is exactly as you left it. The photo comes back here in a moment.</div>
+  </div>
+
+  <div style="position: absolute; left: 20px; right: 20px; top: 610px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 12px; background: #11161B; border: 1px solid #222A33; border-radius: 14px; padding: 14px;">
+      <div style="width: 24px; height: 24px; border-radius: 50%; background: #12201A; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12.6l4.2 4.2L19 7" stroke="#5FD39B" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <span style="font-size: 13px; color: #D4DBE1;">App opened on the far phone</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; background: #11161B; border: 1px solid #222A33; border-radius: 14px; padding: 14px;">
+      <div style="width: 24px; height: 24px; border-radius: 50%; background: #12201A; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 12.6l4.2 4.2L19 7" stroke="#5FD39B" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </div>
+      <span style="font-size: 13px; color: #D4DBE1;">Shutter sent</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px; background: #11161B; border: 1px solid #222A33; border-radius: 14px; padding: 14px;">
+      <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid #2E4650; border-top-color: #5AC8E8; box-sizing: border-box; flex-shrink: 0;"></div>
+      <span style="font-size: 13px; color: #A3AFBA;">Waiting for the photo…</span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 0 20px 36px;">
+    <a href="Viewfinder.dc.html" style="display: block; text-align: center; padding: 16px; border-radius: 15px; border: 1px solid #2A333C; color: #F2F5F7; text-decoration: none; font-size: 15px; font-weight: 600;">Back to ShutterLink's camera</a>
+  </div>
+
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

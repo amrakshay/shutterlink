@@ -22,6 +22,9 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- [`design/`](design/) — sixteen UI mocks the app is being built against, viewable in a browser,
+  and the small set of rules they follow (dark throughout, one accent colour, awkward constraints
+  stated on the screen where they happen).
 - Release signing: a 4096-bit key (`CN=shutterlink`, valid to 2054) in the macOS Keychain and in
   the repository's Actions secrets. The whole chain — Keychain, `tools/release-env.sh`,
   `assembleRelease`, `apksigner` — is verified, and the minified release APK was smoke-tested on

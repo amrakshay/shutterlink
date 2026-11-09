@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Camera is live</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+    a { color: #5AC8E8; } a:hover { color: #8FDCF0; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #05070A; color: #FFFFFF; padding: 56px 24px 32px; display: flex; flex-direction: column; align-items: center; text-align: center;">
+
+  <div style="display: flex; align-items: center; gap: 9px; background: #0D1A14; border: 1px solid #27503B; border-radius: 999px; padding: 9px 16px;">
+    <span style="width: 8px; height: 8px; border-radius: 50%; background: #5FD39B;"></span>
+    <span style="font-size: 13px; font-weight: 600; color: #5FD39B;">Live</span>
+  </div>
+
+  <div style="height: 56px;"></div>
+
+  <div style="width: 118px; height: 118px; border-radius: 50%; background: #0C1A21; border: 1px solid #22404D; display: flex; align-items: center; justify-content: center;">
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="12" cy="12" r="8.4" stroke="#5AC8E8" stroke-width="1.5" stroke-dasharray="36 10" stroke-linecap="round"></circle>
+      <circle cx="12" cy="12" r="3" fill="#5AC8E8"></circle>
+    </svg>
+  </div>
+
+  <h1 style="margin: 30px 0 10px; font-size: 25px; font-weight: 700; letter-spacing: -0.02em;">Controlled from Pixel 6a</h1>
+  <p style="margin: 0; font-size: 15px; line-height: 1.5; color: #A3AFBA; max-width: 290px;">You can put this phone down. Leave it pointing where you want the photo taken.</p>
+
+  <div style="margin-top: 32px; width: 100%; display: flex; gap: 10px;">
+    <div style="flex: 1 1 0; background: #0E1317; border: 1px solid #1E262E; border-radius: 15px; padding: 15px 10px;">
+      <div style="font-size: 21px; font-weight: 600;">78%</div>
+      <div style="font-size: 11px; color: #7D8B97; margin-top: 3px;">Battery</div>
+    </div>
+    <div style="flex: 1 1 0; background: #0E1317; border: 1px solid #1E262E; border-radius: 15px; padding: 15px 10px;">
+      <div style="font-size: 21px; font-weight: 600;">720p</div>
+      <div style="font-size: 11px; color: #7D8B97; margin-top: 3px;">Sending</div>
+    </div>
+    <div style="flex: 1 1 0; background: #0E1317; border: 1px solid #1E262E; border-radius: 15px; padding: 15px 10px;">
+      <div style="font-size: 21px; font-weight: 600;">4</div>
+      <div style="font-size: 11px; color: #7D8B97; margin-top: 3px;">Shots</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <div style="width: 100%; background: #0E1317; border: 1px solid #1E262E; border-radius: 16px; padding: 16px; text-align: left; display: flex; gap: 12px; align-items: flex-start;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="flex-shrink: 0; margin-top: 1px;" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="#A3AFBA" stroke-width="1.8"></circle>
+      <path d="M12 11v5.5" stroke="#A3AFBA" stroke-width="1.8" stroke-linecap="round"></path>
+      <circle cx="12" cy="7.8" r="1.1" fill="#A3AFBA"></circle>
+    </svg>
+    <div style="font-size: 13px; line-height: 1.5; color: #A3AFBA;">The screen dims itself in a moment so it does not light the shot. The camera keeps running.</div>
+  </div>
+
+  <button type="button" style="margin-top: 14px; width: 100%; padding: 16px; border-radius: 15px; border: 1px solid #2A333C; background: transparent; color: #F2F5F7; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;">Dim the screen now</button>
+
+  <a href="Main.dc.html" style="margin-top: 10px; display: block; width: 100%; box-sizing: border-box; text-align: center; padding: 15px; border-radius: 15px; color: #E8857A; text-decoration: none; font-size: 15px; font-weight: 600;">End session</a>
+
+</div>
+</x-dc>
+
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

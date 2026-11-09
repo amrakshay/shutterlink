@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShutterLink — UI mocks</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --panel: #FFFFFF;
+    --line: #DFE4E9;
+    --ink: #101418;
+    --muted: #5A6872;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B0E12; --panel: #12171C; --line: #222A33; --ink: #F2F5F7; --muted: #A3AFBA;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B0E12; --panel: #12171C; --line: #222A33; --ink: #F2F5F7; --muted: #A3AFBA;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: Inter, system-ui, sans-serif;
+    padding: 40px 16px 64px;
+  }
+  .wrap { max-width: 1400px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+  .lede { margin: 0 0 8px; font-size: 15px; line-height: 1.55; color: var(--muted); max-width: 680px; }
+  h2 {
+    margin: 44px 0 16px; font-size: 13px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; }
+  figure { margin: 0; }
+  figcaption { margin-top: 10px; font-size: 13px; font-weight: 600; }
+  .shell {
+    width: 300px; height: 649px; border-radius: 20px; overflow: hidden;
+    border: 1px solid var(--line); background: #000;
+  }
+  .shell.wide { width: 560px; height: 357px; }
+  iframe { width: 390px; height: 844px; border: 0; display: block;
+           transform: scale(0.7692); transform-origin: top left; }
+  .shell.wide iframe { width: 880px; height: 560px; transform: scale(0.6364); }
+  footer { margin-top: 56px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>ShutterLink — UI mocks</h1>
+  <p class="lede">Sixteen screens, at phone size (390&times;844), shown here at 77%. These are design mocks, not the app: nothing in them is wired up.</p>
+  <p class="lede">Dark throughout, because the app is used with a camera running and often in low light — a bright screen on the far phone would light the subject.</p>
+
+  <h2>Setting up — pairing the two phones</h2>
+  <div class="row">
+    <figure><div class="shell"><iframe src="Main.dc.html" title="Role picker"></iframe></div><figcaption>1 · Role picker</figcaption></figure>
+    <figure><div class="shell"><iframe src="Permissions.dc.html" title="Permissions"></iframe></div><figcaption>2 · Permissions</figcaption></figure>
+    <figure><div class="shell"><iframe src="CameraWaiting.dc.html" title="Camera waiting"></iframe></div><figcaption>3 · Camera waiting</figcaption></figure>
+    <figure><div class="shell"><iframe src="ControllerFind.dc.html" title="Finding phones"></iframe></div><figcaption>4 · Finding phones</figcaption></figure>
+    <figure><div class="shell"><iframe src="PairConfirm.dc.html" title="Confirm code"></iframe></div><figcaption>5 · Confirm code</figcaption></figure>
+  </div>
+
+  <h2>Shooting — the phone in your hand</h2>
+  <div class="row">
+    <figure><div class="shell"><iframe src="Viewfinder.dc.html" title="Viewfinder"></iframe></div><figcaption>6 · Viewfinder</figcaption></figure>
+    <figure><div class="shell"><iframe src="EnginePicker.dc.html" title="Shoot with"></iframe></div><figcaption>7 · Shoot with</figcaption></figure>
+    <figure><div class="shell"><iframe src="Countdown.dc.html" title="Countdown"></iframe></div><figcaption>8 · Countdown</figcaption></figure>
+    <figure><div class="shell"><iframe src="ThirdPartyShooting.dc.html" title="Another app shooting"></iframe></div><figcaption>9 · Another app shooting</figcaption></figure>
+    <figure><div class="shell"><iframe src="Transferring.dc.html" title="Photo arriving"></iframe></div><figcaption>10 · Photo arriving</figcaption></figure>
+    <figure><div class="shell"><iframe src="Review.dc.html" title="Review"></iframe></div><figcaption>11 · Review</figcaption></figure>
+  </div>
+
+  <h2>The far phone, and when things go wrong</h2>
+  <div class="row">
+    <figure><div class="shell"><iframe src="CameraLive.dc.html" title="Camera live"></iframe></div><figcaption>12 · Camera, live</figcaption></figure>
+    <figure><div class="shell"><iframe src="Disconnected.dc.html" title="Disconnected"></iframe></div><figcaption>13 · Disconnected</figcaption></figure>
+    <figure><div class="shell"><iframe src="Settings.dc.html" title="Settings"></iframe></div><figcaption>14 · Settings</figcaption></figure>
+    <figure><div class="shell"><iframe src="Unsupported.dc.html" title="Phone unsupported"></iframe></div><figcaption>15 · Phone unsupported</figcaption></figure>
+  </div>
+
+  <h2>App icon</h2>
+  <div class="row">
+    <figure><div class="shell wide"><iframe src="Icon.dc.html" title="App icon"></iframe></div><figcaption>16 · App icon</figcaption></figure>
+  </div>
+
+  <footer>
+    Serve this folder rather than opening the file directly, so the frames load:
+    <code>python3 -m http.server</code> in <code>design/mocks/</code>, then open
+    <code>http://localhost:8000/</code>.
+  </footer>
+
+</div>
+</body>
+</html>
