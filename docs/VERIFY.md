@@ -116,7 +116,7 @@ the gallery entries. Two is a bug; zero is a worse one.
 ## 7 — Before any release
 
 - [ ] Every section above passes on two phones
-- [ ] One of them is not a OnePlus — OEM behaviour is the main unknown
+- [x] One of them is not a OnePlus — the pair is a OnePlus 7 (Android 10, Qualcomm) and a Samsung Galaxy M04 (Android 14, MediaTek), which differ in OEM, SoC and permission regime
 - [ ] `./gradlew :protocol:test` green
 - [ ] CI green
 - [ ] `VERSION` bumped and `CHANGELOG.md` has a section for it

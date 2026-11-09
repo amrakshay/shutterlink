@@ -159,7 +159,7 @@ Each phase ends in something you can actually run on a phone.
 - Saves to MediaStore, visible in Gallery.
 - **Done when:** the app is a usable standalone camera. Everything after this adds remoteness.
 
-### Phase 2 — Transport — **built, half-verified** *(see §12)*
+### Phase 2 — Transport — **done, verified on two phones**
 - `Transport` interface: `advertise()`, `discover()`, `connect()`, `send()`, `onReceive`, `onStateChange`.
 - `NearbyTransport` on `P2P_POINT_TO_POINT`.
 - Permission matrix handled properly — this is the biggest source of silent failure:
@@ -171,7 +171,7 @@ Each phase ends in something you can actually run on a phone.
 - `Hello`/`Capabilities` handshake; connection state surfaced in the UI.
 - **Done when:** a control message round-trips between phones and latency is logged.
 
-### Phase 3 — Live preview — **written, unverified**
+### Phase 3 — Live preview — **working on two phones** (latency measured as round trip, not yet glass-to-glass)
 - Camera side: `ImageAnalysis` (YUV_420_888) → `MediaCodec` H.264 encoder in Surface mode
   (feed the encoder's input Surface directly from CameraX — avoids a YUV copy per frame).
 - Config: 1280×720, 24 fps, ~3 Mbps VBR, 2s keyframe interval, baseline profile for compatibility.
@@ -573,6 +573,11 @@ up to date — CONTRIBUTING.md asks PRs to.
 | 2026-11-09 | OnePlus 7 | Phase 1: zoom stops offered match the device's range (no 0.6× — this camera's min zoom is 1.0) | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 1: front/back flip switches cameras; front preview and front capture both work | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 1: capture rotation follows the physical phone, not the locked-portrait activity | Passed — a sideways-held shot saved 4000×3000 with EXIF orientation 1 and renders upright. Before the fix a portrait-held shot was tagged orientation 7 (mirrored **and** rotated 90°) |
+| 2026-11-09 | **Samsung Galaxy M04 (SM-M045F), Android 14 / API 34** | `wifi.direct`, `bluetooth_le`, `camera.level.full` + front + flash, hardware AVC encoder (`c2.mtk.avc.encoder`), `HidDeviceService`, Play Services 26.43.30; no `wifi.aware` | All present — the second phone can do everything the design needs |
+| 2026-11-09 | Samsung M04 | The app installs, launches and runs on Android 14 | Passed |
+| 2026-11-09 | Samsung M04 | On API 34 the runtime permissions are `BLUETOOTH_SCAN`/`ADVERTISE`/`CONNECT` and `NEARBY_WIFI_DEVICES`, and `ACCESS_FINE_LOCATION` is **not** requested — the `maxSdkVersion="32"` cap works | Passed |
+| 2026-11-09 | Both | **§1 passes.** Discovery, matching 4-digit codes on both screens, accept on both, connection, handshake, live round trip (78–172 ms) | Passed |
+| 2026-11-09 | Both | **§2 passes.** Live 720p preview from the OnePlus shown on the Samsung, upright and full frame; ~1100 frames with 6 dropped | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: the permission list is computed from the running Android version — on API 29 it asks for Location only, with the reason on screen, and never for the API 31+ Bluetooth permissions | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: Nearby advertising starts — `startAdvertising` succeeds over BLE/Bluetooth/WIFI_LAN with Wi-Fi Direct among the upgrade mediums | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: the waiting screen shows the name the other phone should look for | Passed |
@@ -583,7 +588,6 @@ up to date — CONTRIBUTING.md asks PRs to.
 
 | Unknown | Blocks |
 |---|---|
-| Any second phone at all | Phases 2, 3, 4, 5, 6 |
 | Whether both phones support `BluetoothHidDevice` as a *device* | Phase 2.5 |
 | Whether PicsArt responds to the volume-key shutter | Phase 5.5 (T-15) |
 | Real glass-to-glass preview latency | Phase 3 — the whole design rests on this being under ~200 ms |

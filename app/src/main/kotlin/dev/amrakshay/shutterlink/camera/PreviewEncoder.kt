@@ -2,6 +2,7 @@ package dev.amrakshay.shutterlink.camera
 
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
+import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.os.Bundle
 import android.util.Log
@@ -57,39 +58,81 @@ class PreviewEncoder(
 
     /** The Surface CameraX should draw into. Valid until [stop]. */
     fun start(): Surface {
-        val format = MediaFormat.createVideoFormat(
-            MediaFormat.MIMETYPE_VIDEO_AVC,
-            quality.width,
-            quality.height,
-        ).apply {
-            setInteger(
-                MediaFormat.KEY_COLOR_FORMAT,
-                MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
-            )
-            setInteger(MediaFormat.KEY_BIT_RATE, quality.bitrate)
-            setInteger(MediaFormat.KEY_FRAME_RATE, quality.fps)
-            // A keyframe every second. Longer saves bandwidth but lengthens the
-            // black period when the controller joins or recovers, and that delay
-            // is the thing people actually notice.
-            setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
-            // Baseline: the widest decoder support. This stream is watched on
-            // whatever phone the user happens to be holding.
-            setInteger(
-                MediaFormat.KEY_PROFILE,
-                MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline,
-            )
+        // Try every AVC encoder this phone has, hardware first, until one
+        // actually configures.
+        //
+        // Not defensive programming for its own sake: on the OnePlus 7 the
+        // encoder `createEncoderByType` picks — the legacy OMX one — refuses a
+        // surface configuration outright ("Unsupported eColorFormat 0x7f000789,
+        // configureCodec returning error -38") while the Codec2 encoder on the
+        // same phone takes it. Asking for a MIME type and hoping is not enough
+        // when two phones in the test pair already disagree.
+        val candidates = encoderNames()
+        var lastFailure: Throwable? = null
+
+        for (name in candidates) {
+            val codec = runCatching { MediaCodec.createByCodecName(name) }.getOrNull() ?: continue
+            try {
+                codec.configure(format(), null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+                val input = codec.createInputSurface()
+                codec.start()
+
+                this.codec = codec
+                this.surface = input
+                running.set(true)
+                drain = Thread(::drainLoop, "shutterlink-encoder").apply { start() }
+                Log.i(TAG, "encoding with $name at ${quality.width}x${quality.height}")
+                return input
+            } catch (t: Throwable) {
+                Log.w(TAG, "$name would not configure", t)
+                lastFailure = t
+                runCatching { codec.release() }
+            }
         }
+        throw IllegalStateException(
+            "no H.264 encoder on this phone would accept a surface " +
+                "(tried ${candidates.joinToString()})",
+            lastFailure,
+        )
+    }
 
-        val codec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC)
-        codec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-        val input = codec.createInputSurface()
-        codec.start()
+    private fun format() = MediaFormat.createVideoFormat(
+        MediaFormat.MIMETYPE_VIDEO_AVC,
+        quality.width,
+        quality.height,
+    ).apply {
+        setInteger(
+            MediaFormat.KEY_COLOR_FORMAT,
+            MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface,
+        )
+        setInteger(MediaFormat.KEY_BIT_RATE, quality.bitrate)
+        setInteger(MediaFormat.KEY_FRAME_RATE, quality.fps)
+        // A keyframe every second. Longer saves bandwidth but lengthens the
+        // black period when the controller joins or recovers, and that delay is
+        // the thing people actually notice.
+        setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1)
+        // KEY_PROFILE is deliberately NOT set. Requesting a profile without a
+        // matching KEY_LEVEL makes several Qualcomm OMX encoders fail to
+        // configure, and the default these encoders choose is already baseline
+        // or better. Pinning the profile bought nothing and cost the stream.
+    }
 
-        this.codec = codec
-        this.surface = input
-        running.set(true)
-        drain = Thread(::drainLoop, "shutterlink-encoder").apply { start() }
-        return input
+    /** AVC encoders on this phone, hardware ones first. */
+    private fun encoderNames(): List<String> {
+        val all = MediaCodecList(MediaCodecList.REGULAR_CODECS).codecInfos
+            .filter { it.isEncoder }
+            .filter { it.supportedTypes.any { type -> type.equals(MediaFormat.MIMETYPE_VIDEO_AVC, true) } }
+            .filter {
+                runCatching {
+                    it.getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC)
+                        .colorFormats
+                        .contains(MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
+                }.getOrDefault(false)
+            }
+        // Hardware first: software AVC encoding at 720p24 is not realistic here,
+        // but it is better than no preview at all, so it stays as a last resort.
+        val (hardware, software) = all.partition { it.isHardwareAccelerated }
+        return (hardware + software).map { it.name }
     }
 
     /** Ask for a keyframe now — used when a controller (re)joins. */

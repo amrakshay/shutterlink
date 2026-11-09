@@ -66,6 +66,7 @@ import java.io.File
  */
 @Composable
 fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
+    KeepScreenOn()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -79,6 +80,8 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
     var shots by remember { mutableIntStateOf(0) }
     var countdown by remember { mutableStateOf<Int?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
+    var rotation by remember { mutableIntStateOf(0) }
+    var lastFacts by remember { mutableStateOf<dev.amrakshay.shutterlink.camera.CameraFacts?>(null) }
 
     // Start, and restart whenever the camera or the quality changes. Both need
     // the encoder torn down and rebuilt: the encoder's input Surface is fixed at
@@ -93,8 +96,11 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
             }
             val fresh = PreviewEncoder(quality, sink) { problem = "The encoder stopped" }
             val surface = fresh.start()
-            val facts = session.bindForStreaming(lifecycleOwner, surface, front)
+            val facts = session.bindForStreaming(lifecycleOwner, surface, front) { degrees ->
+                rotation = degrees
+            }
             encoder = fresh
+            lastFacts = facts
             streaming = true
 
             // Now that the camera is bound we know what it can really do, so the
@@ -106,6 +112,7 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
                     hasBackCamera = facts.hasBackCamera,
                     minZoom = facts.minZoom,
                     maxZoom = facts.maxZoom,
+                    rotationDegrees = rotation,
                 ),
             )
         }.onFailure {
@@ -157,6 +164,21 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
 
     LaunchedEffect(Unit) {
         pairing.send(Message.Engines(CaptureEngines.discover(context)))
+    }
+
+    // The phone can be turned over mid-session, so the angle is not a one-off.
+    LaunchedEffect(rotation) {
+        val facts = lastFacts ?: return@LaunchedEffect
+        pairing.send(
+            Message.Capabilities(
+                deviceName = thisPhoneName(),
+                hasFrontCamera = facts.hasFrontCamera,
+                hasBackCamera = facts.hasBackCamera,
+                minZoom = facts.minZoom,
+                maxZoom = facts.maxZoom,
+                rotationDegrees = rotation,
+            ),
+        )
     }
 
     // Handing the shot to another camera app, and getting it back. The launcher

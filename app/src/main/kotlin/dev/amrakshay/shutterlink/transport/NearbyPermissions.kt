@@ -35,11 +35,25 @@ object NearbyPermissions {
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             add(Manifest.permission.NEARBY_WIFI_DEVICES)
-        } else {
-            // Below 33 there is no nearby-devices permission, and the Wi-Fi and
-            // BLE scans are both gated on location instead.
-            add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
+        // Both, on EVERY version, Android 14 included.
+        //
+        // This is the library's requirement, not the platform's: a
+        // neverForLocation BLE scan needs no location permission at all from
+        // Android 12 on. Nearby Connections' P2P discovery refuses to start
+        // without both, and says which one it is missing:
+        //   8034: MISSING_PERMISSION_ACCESS_COARSE_LOCATION
+        //   8036: MISSING_PERMISSION_ACCESS_FINE_LOCATION
+        // Both were observed on a Samsung running Android 14 with
+        // BLUETOOTH_SCAN and NEARBY_WIFI_DEVICES already granted. Writing this
+        // the way the platform documentation implies — capped at API 32 —
+        // produces an app that cannot find anything on Android 13 or newer.
+        //
+        // Asking a camera app for location is the single most alarming thing on
+        // the permission screen, and it is here only because of this dependency.
+        // Backlog T-7 (replacing Nearby) would remove it.
+        add(Manifest.permission.ACCESS_FINE_LOCATION)
+        add(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
     fun missing(context: Context): List<String> = required().filter {
@@ -55,10 +69,13 @@ object NearbyPermissions {
      */
     fun reason(permission: String): String = when (permission) {
         Manifest.permission.ACCESS_FINE_LOCATION ->
-            "Android 10 and 11 refuse to scan for nearby phones without it. " +
+            "Android refuses to let the app search for nearby phones without it. " +
                 "ShutterLink never reads your location."
         Manifest.permission.NEARBY_WIFI_DEVICES ->
             "To send the live view over Wi-Fi Direct, straight to your other phone."
+        Manifest.permission.ACCESS_COARSE_LOCATION ->
+            "Android will not let any app look for nearby devices without it, on " +
+                "every version. ShutterLink never reads your location."
         Manifest.permission.BLUETOOTH_SCAN -> "To find your other phone."
         Manifest.permission.BLUETOOTH_ADVERTISE -> "So your other phone can find this one."
         Manifest.permission.BLUETOOTH_CONNECT -> "To connect to it once you have picked it."
@@ -67,6 +84,7 @@ object NearbyPermissions {
 
     fun label(permission: String): String = when (permission) {
         Manifest.permission.ACCESS_FINE_LOCATION -> "Location"
+        Manifest.permission.ACCESS_COARSE_LOCATION -> "Approximate location"
         Manifest.permission.NEARBY_WIFI_DEVICES -> "Nearby Wi-Fi devices"
         Manifest.permission.BLUETOOTH_SCAN -> "Find nearby devices"
         Manifest.permission.BLUETOOTH_ADVERTISE -> "Be discoverable"

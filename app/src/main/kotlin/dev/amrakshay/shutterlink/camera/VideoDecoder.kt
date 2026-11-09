@@ -33,6 +33,8 @@ class VideoDecoder(
     private val surface: Surface,
     private val onHealth: (StreamHealth) -> Unit = {},
     private val onEnded: () -> Unit = {},
+    /** The real picture size, taken from the stream rather than assumed. */
+    private val onSize: (Int, Int) -> Unit = { _, _ -> },
 ) {
     private var codec: MediaCodec? = null
     private val running = AtomicBoolean(false)
@@ -113,6 +115,19 @@ class VideoDecoder(
         val info = MediaCodec.BufferInfo()
         while (true) {
             val index = codec.dequeueOutputBuffer(info, 0)
+            if (index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                // The only trustworthy source for the picture size: it comes
+                // from the stream's own SPS, not from what the sender said it
+                // would send.
+                val out = codec.outputFormat
+                runCatching {
+                    onSize(
+                        out.getInteger(MediaFormat.KEY_WIDTH),
+                        out.getInteger(MediaFormat.KEY_HEIGHT),
+                    )
+                }
+                continue
+            }
             if (index < 0) break
             // true: hand the buffer to the Surface, which is the whole point.
             codec.releaseOutputBuffer(index, true)

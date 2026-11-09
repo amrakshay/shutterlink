@@ -68,6 +68,7 @@ private val TIMERS = listOf(0, 3, 10)
  */
 @Composable
 fun CameraScreen(onBack: () -> Unit) {
+    KeepScreenOn()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()

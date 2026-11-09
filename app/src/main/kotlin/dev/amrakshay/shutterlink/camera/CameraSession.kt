@@ -117,11 +117,18 @@ class CameraSession(private val context: Context) {
         lifecycleOwner: LifecycleOwner,
         encoderSurface: Surface,
         front: Boolean,
+        onRotation: (Int) -> Unit = {},
     ): CameraFacts {
         val provider = provider()
 
         val preview = Preview.Builder().build().also { preview ->
             preview.surfaceProvider = Preview.SurfaceProvider { request ->
+                // CameraX works out how the sensor's output relates to the way
+                // the phone is held. Feeding a raw Surface means nothing applies
+                // that for us, so the angle is passed on to whoever displays it.
+                request.setTransformationInfoListener(
+                    ContextCompat.getMainExecutor(context),
+                ) { info -> onRotation(info.rotationDegrees) }
                 request.provideSurface(
                     encoderSurface,
                     ContextCompat.getMainExecutor(context),

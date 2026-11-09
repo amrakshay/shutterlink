@@ -30,13 +30,19 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
 
     <!--
-      Android 10-12 will not scan over BLE or Wi-Fi Direct without location.
-      The app never reads a location; maxSdkVersion stops it being requested on
-      versions that offer the honest alternative below.
+      Both location permissions, on every version, with no maxSdkVersion.
+      This is not what the platform requires — a neverForLocation BLE scan needs
+      no location at all on Android 12+ — it is what Nearby Connections requires.
+      Its P2P discovery refuses to start without them and says so:
+        8034: MISSING_PERMISSION_ACCESS_COARSE_LOCATION
+        8036: MISSING_PERMISSION_ACCESS_FINE_LOCATION
+      Both observed on a Samsung running Android 14 with BLUETOOTH_SCAN and
+      NEARBY_WIFI_DEVICES already granted. Capping these at API 32, which the
+      platform documentation suggests, simply stops the app working on 13+.
+      This is the clearest cost of the Nearby dependency — see backlog T-7.
     -->
-    <uses-permission
-        android:name="android.permission.ACCESS_FINE_LOCATION"
-        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation"

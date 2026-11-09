@@ -1,8 +1,12 @@
 package dev.amrakshay.shutterlink.ui
 
-import android.view.SurfaceHolder
-import android.view.SurfaceView
+import android.graphics.Matrix
+import android.graphics.SurfaceTexture
+import android.view.TextureView
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +65,7 @@ private val TIMERS = listOf(0, 3, 10)
  */
 @Composable
 fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> Unit) {
+    KeepScreenOn()
     var decoder by remember { mutableStateOf<VideoDecoder?>(null) }
     var health by remember { mutableStateOf(StreamHealth()) }
     var zoom by remember { mutableStateOf(0f) }
@@ -68,6 +74,10 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
     var countdown by remember { mutableStateOf<Int?>(null) }
     var capturing by remember { mutableStateOf(false) }
     var surfaceReady by remember { mutableStateOf<android.view.Surface?>(null) }
+    var videoSize by remember { mutableStateOf(1280 to 720) }
+    // Held so the transform can be re-applied whenever the angle or the picture
+    // size changes, not only when the view happens to be recreated.
+    var textureView by remember { mutableStateOf<TextureView?>(null) }
     var engine by remember { mutableStateOf(ENGINE_SHUTTERLINK) }
     var pickingEngine by remember { mutableStateOf(false) }
 
@@ -117,6 +127,7 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
             surface = surface,
             onHealth = { health = it },
             onEnded = { },
+            onSize = { w, h -> videoSize = w to h },
         ).also { it.start(stream) }
     }
 
@@ -149,24 +160,68 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
 
-        AndroidView(
-            factory = { context ->
-                SurfaceView(context).apply {
-                    holder.addCallback(object : SurfaceHolder.Callback {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            surfaceReady = holder.surface
-                        }
+        // The camera sensor is landscape and its buffers reach the encoder
+        // untransformed, so a phone propped up in portrait sends frames lying on
+        // their side. The far phone tells us the angle (only it can know it —
+        // it depends on the sensor mounting and how the phone is being held) and
+        // the picture is turned here.
+        //
+        // A TextureView rather than a SurfaceView because only a TextureView can
+        // be transformed; and it is sized to the rotated picture's aspect ratio
+        // so the rotation needs no distorting scale to fit.
+        val rotation = state.theirCapabilities?.rotationDegrees ?: 0
+        val rotationRef = rememberUpdatedState(rotation)
+        val (vw, vh) = videoSize
+        val shownAspect =
+            if (rotation % 180 == 90) vh.toFloat() / vw else vw.toFloat() / vh
 
-                        override fun surfaceChanged(h: SurfaceHolder, f: Int, w: Int, ht: Int) = Unit
+        // Re-apply whenever the angle, the picture size or the view changes.
+        // Doing it only inside AndroidView's update was not enough: update can
+        // run before the view has been laid out, and a transform computed from
+        // a zero width is dropped.
+        LaunchedEffect(textureView, rotation, videoSize) {
+            val view = textureView ?: return@LaunchedEffect
+            var tries = 0
+            while (view.width == 0 && tries < 20) {
+                kotlinx.coroutines.delay(50)
+                tries++
+            }
+            applyRotation(view, rotation, view.width, view.height)
+        }
 
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {
-                            surfaceReady = null
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            AndroidView(
+                factory = { context ->
+                    TextureView(context).apply {
+                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            override fun onSurfaceTextureAvailable(
+                                texture: SurfaceTexture,
+                                width: Int,
+                                height: Int,
+                            ) {
+                                textureView = this@apply
+                                surfaceReady = android.view.Surface(texture)
+                            }
+
+                            override fun onSurfaceTextureSizeChanged(
+                                texture: SurfaceTexture,
+                                width: Int,
+                                height: Int,
+                            ) = applyRotation(this@apply, rotationRef.value, width, height)
+
+                            override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
+                                surfaceReady = null
+                                return true
+                            }
+
+                            override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
                         }
-                    })
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+                    }
+                },
+                update = { view -> textureView = view },
+                modifier = Modifier.fillMaxWidth().aspectRatio(shownAspect),
+            )
+        }
 
         if (health.framesShown == 0L) {
             Column(
@@ -184,22 +239,30 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
             }
         }
 
-        // Top strip: the facts, not decoration.
+        // Top strip. The facts scroll rather than wrap: on a 720px-wide phone
+        // the row overflowed and Android stacked the last chip one letter per
+        // line, which looked like a rendering fault.
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Chip(state.connected?.name ?: "—", dot = true)
-            state.latencyMillis?.let { Chip("$it ms") }
-            Chip("${health.framesShown} f")
-            if (health.framesDropped > 0) Chip("${health.framesDropped} dropped")
-            Spacer(Modifier.weight(1f))
             Chip("Back", onClick = onBack)
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Chip(state.connected?.name ?: "—", dot = true)
+                state.latencyMillis?.let { Chip("$it ms") }
+                Chip("${health.framesShown} f")
+                if (health.framesDropped > 0) Chip("${health.framesDropped} dropped")
+            }
         }
 
         countdown?.let {
@@ -384,4 +447,30 @@ private fun Chip(text: String, dot: Boolean = false, onClick: (() -> Unit)? = nu
         }
         Text(text, color = Ink.Text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }
+}
+
+/**
+ * Turns the TextureView's content by [degrees].
+ *
+ * The view is already sized to the rotated picture's aspect ratio, so after
+ * rotating by a quarter turn the content's bounding box is the view's height by
+ * its width; the scale puts it back inside the view. Without that step a
+ * quarter turn leaves most of the picture outside the view.
+ */
+private fun applyRotation(view: TextureView, degrees: Int, width: Int, height: Int) {
+    if (width == 0 || height == 0) return
+    val matrix = Matrix()
+    val cx = width / 2f
+    val cy = height / 2f
+    // Scale FIRST, then rotate. A TextureView always draws its content
+    // stretched to its own bounds, so for a quarter turn the content must be
+    // stretched into a height-by-width rectangle *before* being turned, after
+    // which it lands exactly in the view. Rotating first and scaling afterwards
+    // applies the scale along the already-turned axes and squeezes the picture
+    // into a strip — which is what it did.
+    if (degrees % 180 == 90) {
+        matrix.setScale(height.toFloat() / width, width.toFloat() / height, cx, cy)
+    }
+    matrix.postRotate(degrees.toFloat(), cx, cy)
+    view.setTransform(matrix)
 }

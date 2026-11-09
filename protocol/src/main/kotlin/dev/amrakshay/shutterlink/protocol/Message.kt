@@ -36,6 +36,16 @@ sealed interface Message {
         val hasBackCamera: Boolean,
         val minZoom: Float,
         val maxZoom: Float,
+        /**
+         * How far the controller must rotate the video to show it upright.
+         *
+         * The camera sensor is landscape and the encoder is fed its buffers
+         * untransformed, so a phone propped up in portrait produces frames lying
+         * on their side. CameraX knows the angle; only it can, since it depends
+         * on the sensor mounting and the phone's current rotation. So it is sent
+         * rather than guessed at the other end.
+         */
+        val rotationDegrees: Int = 0,
     ) : Message
 
     /**
