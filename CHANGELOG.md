@@ -22,6 +22,11 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- **Phase 7 — the review screen, and an honest account of what is unverified.** The photo that
+  arrives opens for review and is only saved to the controller's gallery when you say so. The image
+  is downsampled before display, because a 12MP JPEG decoded whole is ~48MB of bitmap on a phone
+  that is also encoding video. [`docs/VERIFY.md`](docs/VERIFY.md) lists what must be checked on two
+  phones, in dependency order.
 - **Phases 2.5 and 5.5 — firing other camera apps.** ShutterLink can register as a Bluetooth HID
   keyboard, which is how commercial selfie remotes actually work and the only way to trigger an app
   whose shutter lives in its own sandbox. The controller can pick which app takes the shot; apps

@@ -8,9 +8,14 @@ retake it.
 
 It is the Apple Watch Camera Remote, for Android, without the watch.
 
-> **Status: early.** The repository builds, installs and runs, but the app does not do anything
-> yet. [`docs/PLAN.md`](docs/PLAN.md) is the full phase-by-phase plan, written against measurements
-> taken on real hardware rather than assumptions. Phases 0–1 are where the work starts.
+> **Status: built, largely unverified.** Every phase is written and the app compiles, installs and
+> runs. The standalone camera is confirmed working on hardware. Everything that needs *two* phones
+> — the preview, the controls, the photo transfer, reconnection, firing other camera apps — has
+> never been run, because only one phone was available while it was built.
+>
+> [`docs/VERIFY.md`](docs/VERIFY.md) is the ordered list of what to check, and
+> [`docs/PLAN.md`](docs/PLAN.md) records what has actually been measured on hardware versus what is
+> assumed. Nothing is tagged for release until the first five sections of that list pass.
 
 ## What it is
 
@@ -63,6 +68,8 @@ echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 | | |
 |---|---|
 | [`docs/PLAN.md`](docs/PLAN.md) | The whole design: decisions, phases, v2 backlog, risks, and what has actually been measured on hardware. |
+| [`docs/VERIFY.md`](docs/VERIFY.md) | What still has to be checked on two phones, in the order to check it. |
+| [`design/`](design/) | The UI mocks the app is built against, and the rules behind them. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Scope, house style, how to test, how releases work. |
 | [`SECURITY.md`](SECURITY.md) | What the pairing does and does not protect against. |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, version by version. |

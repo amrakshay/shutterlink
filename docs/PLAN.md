@@ -210,7 +210,7 @@ Each phase ends in something you can actually run on a phone.
 - Instrumented tests for the protocol and transport state machine.
 - **Done when:** a 20-minute shoot doesn't require restarting anything.
 
-### Phase 7 — Polish and ship *(~3 days)*
+### Phase 7 — Polish and ship — **partly done**
 - Visual design pass, app icon, onboarding explaining the two-phone setup.
 - README with screenshots + GIF.
 - Signed release build; GitHub Actions release workflow.
@@ -529,7 +529,12 @@ default.
 
 ---
 
-## 12. Phase 0 — done
+## 12. What has actually been verified
+
+> Phases 3–7 were written without a second phone. See [VERIFY.md](VERIFY.md) for the ordered
+> list of what that leaves to check.
+
+### Phase 0 — done
 
 Built and verified on 2026-11-09.
 

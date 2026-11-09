@@ -78,6 +78,11 @@ class Pairing(
 
     fun stopVideo() = transport.stopVideo()
 
+    /** Done looking at the photo that came over. */
+    fun dismissPhoto() {
+        _state.update { it.copy(arrivedPhoto = null) }
+    }
+
     /** Camera phone: start sending a captured photo. Returns its payload id. */
     fun startPhotoTransfer(file: java.io.File): Long? = transport.sendPhoto(file)
 

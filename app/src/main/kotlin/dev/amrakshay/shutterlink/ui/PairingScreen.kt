@@ -71,6 +71,19 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
     // Once connected, the live screens take the whole window. They are drawn
     // outside the padded Box below on purpose: a viewfinder inset by 24dp and
     // the system bars is not a viewfinder.
+    // A photo that has arrived takes precedence over the viewfinder: it is the
+    // thing the user just asked for, and deciding whether to retake is the whole
+    // reason it was sent across.
+    val arrived = state.arrivedPhoto
+    if (arrived != null && role == Role.CONTROLLER) {
+        ReviewScreen(
+            photo = arrived,
+            onRetake = pairing::dismissPhoto,
+            onDone = pairing::dismissPhoto,
+        )
+        return
+    }
+
     if (state.connected != null && !state.incompatible && state.pending == null) {
         if (role == Role.CAMERA) {
             CameraRigScreen(pairing = pairing, onEnd = onBack)
