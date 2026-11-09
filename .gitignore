@@ -1,0 +1,23 @@
+# Android / Gradle.
+.gradle/
+.kotlin/
+build/
+local.properties
+*.apk
+*.aab
+*.keystore
+*.jks
+# The wrapper jar is checked in on purpose, so a clone can build without Gradle installed first.
+!gradle/wrapper/gradle-wrapper.jar
+
+# A release signing key is a credential. Never commit one — see CONTRIBUTING.md.
+creds/
+
+# Captured media from manual testing.
+samples/
+
+# Editors and OS
+.DS_Store
+.idea/
+*.iml
+.vscode/

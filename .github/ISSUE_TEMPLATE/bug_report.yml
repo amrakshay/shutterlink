@@ -1,0 +1,81 @@
+name: Bug report
+description: Something does not work
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. This app involves two phones, and almost every report turns on
+        *which two* — so please fill in both, even if the problem seems to be on one of them.
+
+  - type: dropdown
+    id: part
+    attributes:
+      label: Where does it go wrong?
+      options:
+        - Finding the other phone
+        - Pairing / connecting
+        - The live preview
+        - Taking the photo
+        - Getting the photo back
+        - Capturing with another camera app
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, what you got instead.
+    validations:
+      required: true
+
+  - type: input
+    id: camera-phone
+    attributes:
+      label: Camera phone (the one further away) and Android version
+      placeholder: "OnePlus 7 (GM1901), Android 10"
+    validations:
+      required: true
+
+  - type: input
+    id: controller-phone
+    attributes:
+      label: Controller phone (the one in your hand) and Android version
+      placeholder: "Pixel 8, Android 15"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: App log
+      description: |
+        From either phone, connected over ADB:
+        ```
+        adb logcat -d | grep -iE "shutterlink|Nearby|WifiP2p"
+        ```
+      render: shell
+
+  - type: textarea
+    id: connection
+    attributes:
+      label: Connection details (only if the phones cannot find each other)
+      description: |
+        On both phones, please confirm:
+        - Bluetooth on, Wi-Fi on
+        - Location on (Android 10 and 11 refuse BLE scanning without it)
+        - Both granted the permissions the app asked for
+        - Neither is in battery saver
+      render: shell
+
+  - type: checkboxes
+    id: basics
+    attributes:
+      label: Before reporting
+      options:
+        - label: Both phones have the same version of the app installed
+          required: true
+        - label: Bluetooth and Wi-Fi are on, on both phones
+          required: true

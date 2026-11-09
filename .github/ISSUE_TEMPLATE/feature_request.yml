@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest something
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read the scope section of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) first,
+        and the v2 table in [docs/PLAN.md](../blob/main/docs/PLAN.md) — a good many obvious ideas
+        are already written down there with an identifier, and saying "T-6, and here is why it
+        matters to me" is more useful than a fresh issue.
+
+        Two things are permanently out of scope: **anything needing the internet**, and **turning
+        this into a general camera app** with filters and editing.
+
+        A live preview while a *third-party* camera app is open is not a missing feature — it is
+        impossible. That app holds the camera exclusively. See `docs/PLAN.md` §10.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation you hit, not the solution you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What did you have in mind?
+
+  - type: input
+    id: backlog
+    attributes:
+      label: Is this already in the v2 table in docs/PLAN.md?
+      placeholder: "T-6, or: no"
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: I have read the scope section and believe this fits
+          required: true
