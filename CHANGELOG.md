@@ -22,6 +22,13 @@ While the major version is `0`, the app does not yet do what the README describe
   OnePlus 7 (GM1901, Android 10).
 - [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
   decisions rest on.
+- **Phases 2.5 and 5.5 — firing other camera apps.** ShutterLink can register as a Bluetooth HID
+  keyboard, which is how commercial selfie remotes actually work and the only way to trigger an app
+  whose shutter lives in its own sandbox. The controller can pick which app takes the shot; apps
+  that answer `ACTION_IMAGE_CAPTURE` hand the photo straight back, and the gallery is checked before
+  adding a copy so no app leaves you with two. Untested apps are labelled as such rather than
+  silently offered. **Written but not yet run; the HID half is the least certain thing in the
+  project.**
 - **Phase 6 — surviving real use.** A foreground service so the camera keeps running with the
   screen off (required, not a convenience — Android stops the camera within seconds otherwise), a
   tested backoff policy that reconnects without hammering the radio, and thermal stepping that

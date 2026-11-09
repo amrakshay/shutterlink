@@ -1,6 +1,7 @@
 package dev.amrakshay.shutterlink.transport
 
 import android.os.Build
+import dev.amrakshay.shutterlink.protocol.CaptureEngine
 import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.protocol.Role
 import dev.amrakshay.shutterlink.protocol.Reconnect
@@ -38,6 +39,7 @@ data class PairingState(
     val problem: String? = null,
     val incompatible: Boolean = false,
     val reconnecting: String? = null,
+    val engines: List<CaptureEngine> = emptyList(),
 )
 
 /**
@@ -230,6 +232,8 @@ class Pairing(
                 _state.update { it.copy(theirCapabilities = message) }
             }
 
+            is Message.Engines -> _state.update { it.copy(engines = message.engines) }
+
             is Message.Ping -> transport.send(Message.Pong(message.stamp))
 
             is Message.Pong -> _state.update {
@@ -254,7 +258,6 @@ class Pairing(
             is Message.CaptureFailed,
             is Message.PhotoReady,
             is Message.Status,
-            is Message.Engines,
             is Message.DeletePhoto,
             -> Unit
         }

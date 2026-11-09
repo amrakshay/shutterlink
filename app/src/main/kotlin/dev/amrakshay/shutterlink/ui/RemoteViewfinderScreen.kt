@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.amrakshay.shutterlink.camera.StreamHealth
 import dev.amrakshay.shutterlink.camera.VideoDecoder
+import dev.amrakshay.shutterlink.protocol.ENGINE_SHUTTERLINK
 import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.transport.Pairing
 import dev.amrakshay.shutterlink.transport.PairingState
@@ -63,6 +64,8 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
     var countdown by remember { mutableStateOf<Int?>(null) }
     var capturing by remember { mutableStateOf(false) }
     var surfaceReady by remember { mutableStateOf<android.view.Surface?>(null) }
+    var engine by remember { mutableStateOf(ENGINE_SHUTTERLINK) }
+    var pickingEngine by remember { mutableStateOf(false) }
 
     val stream: InputStream? = state.video
 
@@ -167,6 +170,65 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            // Which app takes the shot. Only offered when the far phone has
+            // more than ours, so it never appears as a menu of one.
+            if (state.engines.size > 1) {
+                val current = state.engines.firstOrNull { it.id == engine }
+                Chip(
+                    "Shooting with ${current?.label ?: "ShutterLink"}",
+                    onClick = { pickingEngine = !pickingEngine },
+                )
+            }
+
+            if (pickingEngine) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(Ink.SurfaceDim, RoundedCornerShape(16.dp))
+                        .border(1.dp, Ink.Line, RoundedCornerShape(16.dp))
+                        .padding(8.dp),
+                ) {
+                    state.engines.forEach { option ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { engine = option.id; pickingEngine = false }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        option.label,
+                                        color = if (option.id == engine) Ink.Accent else Ink.Text,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    if (!option.tested) {
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            "UNTESTED",
+                                            color = Ink.Warning,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        )
+                                    }
+                                }
+                                Text(
+                                    if (option.id == ENGINE_SHUTTERLINK) {
+                                        "Live view, zoom and timer keep working"
+                                    } else {
+                                        "Its own processing — live view pauses"
+                                    },
+                                    color = Ink.Faint,
+                                    fontSize = 11.sp,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             state.theirCapabilities?.let { caps ->
                 if (caps.maxZoom > caps.minZoom) {
                     Slider(
@@ -204,7 +266,7 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
                         .background(if (capturing) Color(0x80FFFFFF) else Color.White, CircleShape)
                         .clickable(enabled = !capturing) {
                             capturing = true
-                            pairing.send(Message.Capture(timerSeconds = timer))
+                            pairing.send(Message.Capture(timerSeconds = timer, engine = engine))
                         },
                 )
 

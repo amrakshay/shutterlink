@@ -472,9 +472,9 @@ prompt.
 
 This replaces the standalone Phase 2.5 from §10:
 
-- **Phase 2.5 — HID shutter foundation** *(~2 days)*: `BluetoothHidDevice` registration, pairing
+- **Phase 2.5 — HID shutter foundation** — **written, unverified**: `BluetoothHidDevice` registration, pairing
   wizard, `VOLUME_UP` delivery. Testable standalone as a plain selfie remote.
-- **Phase 5.5 — Hybrid capture** *(~4 days)*, after photo-return (Phase 5) exists: app discovery and
+- **Phase 5.5 — Hybrid capture** — **written, unverified**, after photo-return (Phase 5) exists: app discovery and
   `Capabilities` extension, the capture-engine picker UI, Path A, Path B, crop guides, and clean
   resume of the preview afterwards.
 

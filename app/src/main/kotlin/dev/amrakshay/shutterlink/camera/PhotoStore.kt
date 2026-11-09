@@ -98,6 +98,49 @@ class PhotoStore(private val context: Context) {
         return uri
     }
 
+    /**
+     * The newest gallery image added since [sinceMillis], if any.
+     *
+     * This is how §11.1 of the plan avoids leaving the user with two copies of
+     * one photo: some camera apps save their own copy when launched for a
+     * result and some do not, and which is which is not knowable in advance. So
+     * we look rather than assume, and only add our own copy if the app added
+     * none.
+     */
+    fun newestSince(sinceMillis: Long): Pair<Uri, String>? {
+        val seconds = sinceMillis / 1000
+        val projection = arrayOf(
+            MediaStore.Images.Media._ID,
+            MediaStore.Images.Media.DISPLAY_NAME,
+        )
+        context.contentResolver.query(
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            projection,
+            "${MediaStore.Images.Media.DATE_ADDED} >= ?",
+            arrayOf(seconds.toString()),
+            "${MediaStore.Images.Media.DATE_ADDED} DESC",
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            val id = cursor.getLong(0)
+            val name = cursor.getString(1) ?: return null
+            return Uri.withAppendedPath(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                id.toString(),
+            ) to name
+        }
+        return null
+    }
+
+    /** Copy a gallery image out to a file, so it can be sent to the other phone. */
+    fun copyOut(uri: Uri, name: String): File? = runCatching {
+        val dir = File(context.cacheDir, "captures").apply { mkdirs() }
+        val file = File(dir, name)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            file.outputStream().use { input.copyTo(it) }
+        } ?: return null
+        file
+    }.getOrNull()
+
     /** Throw away a cached capture once it has been published and sent. */
     fun discard(file: File) {
         runCatching { file.delete() }

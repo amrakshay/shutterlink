@@ -5,6 +5,10 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.PowerManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,14 +45,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import dev.amrakshay.shutterlink.camera.CameraSession
+import dev.amrakshay.shutterlink.camera.CaptureEngines
 import dev.amrakshay.shutterlink.camera.PhotoStore
 import dev.amrakshay.shutterlink.camera.PreviewEncoder
 import dev.amrakshay.shutterlink.camera.StreamQuality
 import dev.amrakshay.shutterlink.camera.StreamingService
+import dev.amrakshay.shutterlink.protocol.ENGINE_SHUTTERLINK
 import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.transport.Pairing
 import dev.amrakshay.shutterlink.transport.thisPhoneName
 import kotlinx.coroutines.delay
+import java.io.File
 
 /**
  * The camera phone once it is connected: streaming, and doing as it is told.
@@ -148,6 +155,49 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
         onDispose { power.removeThermalStatusListener(listener) }
     }
 
+    LaunchedEffect(Unit) {
+        pairing.send(Message.Engines(CaptureEngines.discover(context)))
+    }
+
+    // Handing the shot to another camera app, and getting it back. The launcher
+    // has to live out here: the result arrives on the activity, not inside the
+    // coroutine that asked for it.
+    var handedOff by remember { mutableStateOf<Pair<File, Long>?>(null) }
+    val externalCapture = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { _ ->
+        val (file, startedAt) = handedOff ?: return@rememberLauncherForActivityResult
+        handedOff = null
+
+        // §11.1: look before adding. Some camera apps save their own gallery
+        // copy when launched for a result and some do not, so adding one
+        // unconditionally leaves half of them with duplicates.
+        val theirs = photos.newestSince(startedAt)
+        val toSend: File? = when {
+            theirs != null -> photos.copyOut(theirs.first, theirs.second)
+            file.length() > 0 -> { photos.publish(file); file }
+            else -> null
+        }
+
+        if (toSend == null) {
+            pairing.send(Message.CaptureFailed("that app did not return a photo"))
+        } else {
+            shots += 1
+            val id = pairing.startPhotoTransfer(toSend)
+            if (id != null) {
+                pairing.send(
+                    Message.PhotoReady(
+                        payloadId = id,
+                        name = toSend.name,
+                        bytes = toSend.length(),
+                        width = 0,
+                        height = 0,
+                    ),
+                )
+            }
+        }
+    }
+
     // Do as the controller says.
     LaunchedEffect(Unit) {
         pairing.incoming.collect { message ->
@@ -163,7 +213,37 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
                     encoder?.stop(); encoder = null; streaming = false
                 }
 
-                is Message.Capture -> {
+                is Message.Capture -> if (message.engine != ENGINE_SHUTTERLINK) {
+                    // Another app takes the photo. The live view stops while it
+                    // holds the camera — unavoidable, and said plainly on the
+                    // controller rather than hidden behind a frozen frame.
+                    pairing.send(Message.CaptureStarted)
+                    encoder?.stop()
+                    encoder = null
+                    streaming = false
+
+                    val file = File(
+                        File(context.cacheDir, "captures").apply { mkdirs() },
+                        photos.newName(),
+                    )
+                    val uri: Uri = FileProvider.getUriForFile(
+                        context,
+                        context.packageName + ".captures",
+                        file,
+                    )
+                    handedOff = file to System.currentTimeMillis()
+                    val intent = android.content.Intent(
+                        android.provider.MediaStore.ACTION_IMAGE_CAPTURE,
+                    ).apply {
+                        setPackage(message.engine)
+                        putExtra(android.provider.MediaStore.EXTRA_OUTPUT, uri)
+                        addFlags(android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                    }
+                    runCatching { externalCapture.launch(intent) }.onFailure {
+                        handedOff = null
+                        pairing.send(Message.CaptureFailed("could not open that app"))
+                    }
+                } else {
                     val capture = session.imageCapture
                     if (capture == null) {
                         pairing.send(Message.CaptureFailed("the camera is not ready"))
