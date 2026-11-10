@@ -122,8 +122,9 @@ jobs:
             echo "### About this APK"
             echo ""
             echo "Signed with the project's release key, so an installed copy can be upgraded"
-            echo "in place. **Install it on both phones** — one runs as the camera, the other as"
-            echo "the controller, and the role is chosen inside the app."
+            echo "in place. **Install it on the phone you will hold.** The camera phone needs"
+            echo "nothing installed on it at all — it pairs with this one over Bluetooth the same"
+            echo "way it would pair with a selfie remote."
             echo ""
             echo '```'
             echo "adb install -r shutterlink-${GITHUB_REF_NAME}.apk"

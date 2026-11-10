@@ -9,6 +9,12 @@ configure time — so the APK and the repository cannot ship disagreeing numbers
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.0] — 2026-11-10
+
+The first release.
+
 ShutterLink is a Bluetooth shutter button. It installs on the phone in your hand, pairs with your
 other phone from that phone's own Bluetooth settings, and fires whatever camera app is open there.
 Nothing is installed on the camera phone.
