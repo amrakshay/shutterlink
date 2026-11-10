@@ -22,6 +22,17 @@ sealed interface TransportEvent {
     data class ConnectionRequested(val peer: Peer, val code: String) : TransportEvent
 
     data class Connected(val peer: Peer) : TransportEvent
+
+    /**
+     * The link's carrying capacity changed.
+     *
+     * Nearby starts a connection on Bluetooth and upgrades to Wi-Fi later —
+     * measured at 35 seconds on the test pair. Streaming HD before that happens
+     * pushes 3 Mbps down a link that cannot carry it, and the viewfinder falls
+     * a second behind and stays there. So this is not a detail: it decides what
+     * quality may be sent.
+     */
+    data class LinkQuality(val high: Boolean) : TransportEvent
     data class Disconnected(val id: String) : TransportEvent
     data class Received(val from: String, val message: Message) : TransportEvent
 

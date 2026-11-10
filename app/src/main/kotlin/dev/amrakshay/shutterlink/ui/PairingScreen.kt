@@ -86,7 +86,7 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
 
     if (state.connected != null && !state.incompatible && state.pending == null) {
         if (role == Role.CAMERA) {
-            CameraRigScreen(pairing = pairing, onEnd = onBack)
+            CameraRigScreen(pairing = pairing, linkIsFast = state.linkIsFast, onEnd = onBack)
         } else {
             RemoteViewfinderScreen(pairing = pairing, state = state, onBack = onBack)
         }

@@ -105,32 +105,16 @@ foreground.
 
 Picked up on 2026-11-09 and not yet resolved. In the order worth attacking.
 
-### 1. The preview takes too long to start, and lags at first
+### 1. ~~The preview lags~~ — fixed 2026-11-10
 
-Observed by eye: when the camera first connects, frames arrive slowly and the
-picture is visibly behind reality for the first stretch before settling. Not yet
-measured, so the cause is still open. Things worth checking, cheapest first:
+Cause was HD being pushed down a Bluetooth link before Nearby upgraded to
+Wi-Fi. The stream now starts at 360p and steps up when the link reports HIGH.
+Blocked writes went from 31+ to 0; the link upgrade from 35s to 1.3s; first
+picture from 501ms to 155ms. Full account in FINDINGS §11.
 
-- **Is it the pipe?** `VIDEO_PIPE_BYTES` is 512 KB — roughly a second of video.
-  If Nearby fills that before draining it, everything after is permanently that
-  far behind. A smaller buffer would cap the lag at the cost of dropped frames,
-  which on a viewfinder is the right trade.
-- **Is it the decoder?** It waits for a config frame, and config is only sent
-  ahead of keyframes, which are one second apart (`KEY_I_FRAME_INTERVAL = 1`).
-  Worst case that is a second of black before anything appears. Sending config
-  immediately on connect, and asking the encoder for a keyframe when a
-  controller attaches (`requestKeyframe()` exists and is never called), should
-  cut it.
-- **Is it Nearby's transport upgrade?** The link starts on Bluetooth and is
-  upgraded to Wi-Fi Direct. If the first seconds are running over Bluetooth, the
-  early lag is bandwidth and will clear by itself — in which case the fix is to
-  not start streaming until the upgrade lands, or to start at low quality and
-  step up.
-- **Is the decoder draining every frame?** `render()` releases buffers in a loop
-  but is only called after feeding, so a backlog can build.
-
-Measure before changing anything: the debug counters already show frames and
-drops, and `Message.Ping` gives the control round trip for comparison.
+Still worth measuring properly one day: **true glass-to-glass latency**, by
+pointing the camera at a running stopwatch and photographing both screens. The
+figure in the chip is the control round trip, which is not the same thing.
 
 ### 2. Recovery after the screen goes off — fix written, untested
 

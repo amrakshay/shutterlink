@@ -23,7 +23,7 @@ opposite ends of the permission regime.
 | 8 | Stream stops when the screen goes off | The system takes the camera when the device locks | **Fix written, untested** |
 | 9 | "Trouble looking for phones: 8002" shown as an error | Reconnect re-calls `discover()`; Nearby answers ALREADY_DISCOVERING | **Fixed** |
 | 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
-| 11 | Preview slow to start and lagging at first | Not yet diagnosed | **Open** — see VERIFY.md §5b |
+| 11 | Preview lags behind reality | HD pushed down a Bluetooth link before Nearby upgrades to Wi-Fi | **Fixed** |
 
 ---
 
@@ -201,10 +201,59 @@ and the facts fixes it.
 The lesson is not about rotation. Anything derived from an async callback must
 not be captured once at setup time and assumed final.
 
-## 11 · The preview is slow to start — **open**
+## 11 · The preview lagged because we flooded a Bluetooth link
 
-Frames arrive slowly at first and the picture lags behind reality before
-settling. Not yet measured. Candidate causes and how to tell them apart are in
-VERIFY.md §5b; the shortlist is the 512 KB stream buffer, the one-second
-keyframe interval gating the decoder's first config, and Nearby's
-Bluetooth-to-Wi-Fi upgrade happening after streaming has already begun.
+The reported symptom was that the picture ran behind reality and stayed there.
+Two plausible explanations were wrong, and the instrumentation is what settled
+it — worth saying, because both wrong guesses looked obviously right.
+
+**Wrong guess 1: the keyframe interval.** Config bytes are only sent ahead of
+keyframes, which are a second apart, so the decoder should have waited up to a
+second for its first picture. Measured: the decoder configured in 251 ms having
+dropped **zero** frames waiting. Not the cause, and `requestKeyframe()` would
+have changed nothing.
+
+**Wrong guess 2: the send buffer.** 512 KB is 1.4 s of video at 3 Mbps, so a
+full buffer would put the picture exactly that far behind. Capping it at 64 KB
+changed nothing — because the buffer was a symptom, not the cause.
+
+**The actual cause**, from the encoder's own write timings:
+
+```
+12:35:14  stream starts
+12:35:18  write blocked 180ms
+12:35:29  write blocked 1001ms   (11 so far)
+12:35:38  write blocked 1001ms   (21 so far)
+12:35:49  onBandwidthChanged(HIGH)   <- 35 seconds in
+```
+
+**Nearby runs every connection over Bluetooth first** and upgrades to Wi-Fi when
+it decides to. We began sending 720p at 3 Mbps from the first frame. Bluetooth
+cannot carry that, so writes blocked for a full second at a time and the picture
+fell behind and never recovered.
+
+There is no public way to force the upgrade — `initiateBandwidthUpgrade` is not
+on `ConnectionsClient`; Nearby decides, prompted by a stream payload appearing.
+So the fix is to not send HD until the link can carry it: the stream starts at
+360p and steps up to 720p when `onBandwidthChanged` reports HIGH.
+
+### After the fix
+
+```
+blocked writes:            0   (was 31+ in 35s)
+link reaches HIGH:       1.3s  (was 35s)
+stream open -> picture:  155ms (was 501ms)
+```
+
+**The upgrade itself got ~27× faster**, which was not the point of the change.
+The likely explanation is that saturating Bluetooth with 3 Mbps of video was
+starving Nearby's own upgrade negotiation — the flood delayed the very thing
+that would have ended it. That reading fits the evidence but has been seen once;
+treat it as plausible rather than established.
+
+### The lesson
+
+Two careful, plausible diagnoses were both wrong, and each would have produced a
+confident commit that fixed nothing. The thing that found the cause was logging
+how long a write blocked — a direct measurement of the suspected mechanism
+rather than of its consequences.

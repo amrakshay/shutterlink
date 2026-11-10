@@ -34,8 +34,21 @@ private const val TAG = "ShutterLink/Transport"
  */
 private const val SERVICE_ID = "dev.amrakshay.shutterlink"
 
-/** Roughly a second of 720p at 3 Mbps, so a brief stall does not block the encoder. */
-private const val VIDEO_PIPE_BYTES = 512 * 1024
+/**
+ * How much encoded video may sit between the encoder and the radio.
+ *
+ * This is a latency budget, not a performance buffer, and that was the mistake
+ * in the first version: 512 KB was chosen so a stall would not block the
+ * encoder, but at 3 Mbps it is **1.4 seconds of video**. Anything that fills it
+ * puts the viewfinder permanently that far behind reality, and it never catches
+ * up — the picture stays late for the rest of the session.
+ *
+ * 64 KB is about 170 ms. When it fills, the encoder blocks and the camera
+ * simply produces fewer frames, which on a viewfinder is the right trade: a
+ * dropped frame costs nothing, a late one is worse than useless because you
+ * frame the shot against something that already happened.
+ */
+private const val VIDEO_PIPE_BYTES = 64 * 1024
 
 /**
  * [Transport] over Google's Nearby Connections.
@@ -88,6 +101,11 @@ class NearbyTransport(context: Context) : Transport {
             when (resolution.status.statusCode) {
                 ConnectionsStatusCodes.STATUS_OK -> {
                     connected = id
+                    // There is no public way to force the Wi-Fi upgrade —
+                    // Nearby decides, prompted by a stream payload appearing.
+                    // Measured at 35 seconds on the test pair, so the only
+                    // option is to not send HD until it lands; see
+                    // onBandwidthChanged below and CameraRigScreen.
                     // Once paired there is nothing to gain from staying visible,
                     // and staying visible costs battery on both phones.
                     client.stopAdvertising()
@@ -105,6 +123,15 @@ class NearbyTransport(context: Context) : Transport {
                     ),
                 )
             }
+        }
+
+        override fun onBandwidthChanged(
+            id: String,
+            info: com.google.android.gms.nearby.connection.BandwidthInfo,
+        ) {
+            val high = info.quality == com.google.android.gms.nearby.connection.BandwidthInfo.Quality.HIGH
+            Log.i(TAG, "bandwidth now ${info.quality} (high=$high)")
+            emit(TransportEvent.LinkQuality(high))
         }
 
         override fun onDisconnected(id: String) {

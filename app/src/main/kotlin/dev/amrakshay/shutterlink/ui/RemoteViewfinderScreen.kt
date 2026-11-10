@@ -24,7 +24,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -222,19 +224,67 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
             )
         }
 
+        // Say what is happening instead of showing a picture that is a second
+        // behind. Nearby starts every connection on Bluetooth and moves it to
+        // Wi-Fi when it is ready; until then the stream is deliberately small,
+        // and pretending otherwise just makes the app feel broken.
         if (health.framesShown == 0L) {
             Column(
-                Modifier.align(Alignment.Center),
+                Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 48.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Waiting for the picture…", color = Ink.Muted, fontSize = 14.sp)
-                Spacer(Modifier.height(6.dp))
                 Text(
-                    if (stream == null) "The other phone has not started streaming"
-                    else "Stream open, waiting for a keyframe",
+                    "Starting the camera…",
+                    color = Ink.Text,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(12.dp))
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = Ink.Accent,
+                    trackColor = Color(0x33FFFFFF),
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (stream == null) "Waiting for the other phone to start sending"
+                    else "Stream open — waiting for the first picture",
                     color = Ink.Faint,
                     fontSize = 12.sp,
                 )
+            }
+        } else if (!state.linkIsFast) {
+            Column(
+                Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier
+                        .background(Color(0xCC0A0E12), RoundedCornerShape(16.dp))
+                        .border(1.dp, Color(0x24FFFFFF), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Picture is rough for a moment",
+                            color = Ink.Text,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = Ink.Accent,
+                            trackColor = Color(0x33FFFFFF),
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Still on Bluetooth. It sharpens when Wi-Fi takes over.",
+                            color = Ink.Muted,
+                            fontSize = 12.sp,
+                        )
+                    }
+                }
             }
         }
 

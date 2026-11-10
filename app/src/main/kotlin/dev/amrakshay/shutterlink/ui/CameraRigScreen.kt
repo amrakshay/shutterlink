@@ -65,7 +65,7 @@ import java.io.File
  * someone to touch it.
  */
 @Composable
-fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
+fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -74,7 +74,21 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
 
     var encoder by remember { mutableStateOf<PreviewEncoder?>(null) }
     var front by remember { mutableStateOf(false) }
-    var quality by remember { mutableStateOf(StreamQuality.HIGH) }
+    // Two things cap the quality, and they must not fight over one variable.
+    //
+    // The link: Nearby begins every connection on Bluetooth and upgrades to
+    // Wi-Fi when it decides to — measured at 35 seconds on the test pair.
+    // Sending 720p at 3 Mbps during that window pushes far more than Bluetooth
+    // carries: the encoder's writes blocked for a full second at a time and the
+    // picture fell behind and never caught up. So until the link is fast, LOW.
+    //
+    // The phone: thermal pressure lowers the ceiling and never raises it.
+    //
+    // Whichever is lower wins. Deriving it, rather than having both assign to
+    // the same state, is what stops the link upgrade from quietly undoing a
+    // thermal step-down.
+    var thermalCap by remember { mutableStateOf(StreamQuality.HIGH) }
+    val quality = if (linkIsFast) thermalCap else StreamQuality.LOW
     var streaming by remember { mutableStateOf(false) }
     var shots by remember { mutableIntStateOf(0) }
     var countdown by remember { mutableStateOf<Int?>(null) }
@@ -192,10 +206,9 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
                 status >= PowerManager.THERMAL_STATUS_MODERATE -> StreamQuality.MEDIUM
                 else -> null
             }
-            // Only ever downwards here. Climbing back up the moment the phone
-            // cools would oscillate, and each change costs a visible restart of
-            // the stream.
-            if (wanted != null && wanted.height < quality.height) quality = wanted
+            // Only ever downwards. Climbing back the moment the phone cools
+            // would oscillate, and each change costs a visible restart.
+            if (wanted != null && wanted.height < thermalCap.height) thermalCap = wanted
         }
         power.addThermalStatusListener(ContextCompat.getMainExecutor(context), listener)
         onDispose { power.removeThermalStatusListener(listener) }
@@ -275,7 +288,10 @@ fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
 
                 is Message.SwitchCamera -> front = message.front
 
-                is Message.StartPreview -> quality =
+                // The controller asking for a specific quality sets the
+                // ceiling; the link and thermal caps still apply on top, so it
+                // cannot talk us into pushing HD down a Bluetooth link.
+                is Message.StartPreview -> thermalCap =
                     StreamQuality(message.width, message.height, message.fps, message.bitrate)
 
                 Message.StopPreview -> {

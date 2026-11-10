@@ -43,7 +43,14 @@ class VideoDecoder(
     private val shown = AtomicLong(0)
     private val dropped = AtomicLong(0)
 
+    /** Timing for the slow-start investigation (VERIFY.md §5b). */
+    private var openedAtMillis = 0L
+    private var firstRenderLogged = false
+
     fun start(stream: InputStream) {
+        openedAtMillis = System.currentTimeMillis()
+        firstRenderLogged = false
+        Log.i(TAG, "TIMING stream opened")
         running.set(true)
         worker = Thread({ readLoop(stream) }, "shutterlink-decoder").apply { start() }
     }
@@ -87,7 +94,12 @@ class VideoDecoder(
             configure(format, surface, null, 0)
             start()
         }
-        Log.i(TAG, "decoder configured from ${frame.bytes.size} setup bytes")
+        Log.i(
+            TAG,
+            "TIMING decoder configured ${System.currentTimeMillis() - openedAtMillis}ms " +
+                "after the stream opened, from ${frame.bytes.size} setup bytes " +
+                "(${dropped.get()} frames dropped waiting for it)",
+        )
     }
 
     private fun feed(codec: MediaCodec, frame: VideoFrame) {
@@ -131,6 +143,14 @@ class VideoDecoder(
             if (index < 0) break
             // true: hand the buffer to the Surface, which is the whole point.
             codec.releaseOutputBuffer(index, true)
+            if (!firstRenderLogged) {
+                firstRenderLogged = true
+                Log.i(
+                    TAG,
+                    "TIMING first picture ${System.currentTimeMillis() - openedAtMillis}ms " +
+                        "after the stream opened",
+                )
+            }
             onHealth(
                 StreamHealth(
                     framesShown = shown.incrementAndGet(),

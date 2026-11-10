@@ -56,6 +56,11 @@ class PreviewEncoder(
      */
     private var config: ByteArray? = null
 
+    /** Timing for the slow-start investigation (VERIFY.md §5b). */
+    private var startedAtMillis = 0L
+    private var firstFrameLogged = false
+    private var blockedWrites = 0
+
     /** The Surface CameraX should draw into. Valid until [stop]. */
     fun start(): Surface {
         // Try every AVC encoder this phone has, hardware first, until one
@@ -79,6 +84,8 @@ class PreviewEncoder(
 
                 this.codec = codec
                 this.surface = input
+                startedAtMillis = System.currentTimeMillis()
+                firstFrameLogged = false
                 running.set(true)
                 drain = Thread(::drainLoop, "shutterlink-encoder").apply { start() }
                 Log.i(TAG, "encoding with $name at ${quality.width}x${quality.height}")
@@ -169,6 +176,7 @@ class PreviewEncoder(
                     buffer.limit(info.offset + info.size)
                     val bytes = ByteArray(info.size).also { buffer.get(it) }
 
+                    val writeStartedAt = System.currentTimeMillis()
                     val isConfig = info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0
                     val isKey = info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
 
@@ -199,6 +207,32 @@ class PreviewEncoder(
                         ),
                     )
                     sink.flush()
+                    val blockedMillis = System.currentTimeMillis() - writeStartedAt
+
+                    // A write that blocks means the pipe is full and the radio
+                    // is the bottleneck — which is exactly the condition that
+                    // puts the viewfinder behind reality. Worth seeing rather
+                    // than inferring.
+                    if (blockedMillis > 50) {
+                        blockedWrites += 1
+                        if (blockedWrites % 10 == 1) {
+                            Log.i(
+                                TAG,
+                                "TIMING write blocked ${blockedMillis}ms " +
+                                    "(the link cannot keep up; $blockedWrites so far)",
+                            )
+                        }
+                    }
+
+                    if (!firstFrameLogged) {
+                        firstFrameLogged = true
+                        Log.i(
+                            TAG,
+                            "TIMING first frame written " +
+                                "${System.currentTimeMillis() - startedAtMillis}ms after start " +
+                                "(config=$isConfig key=$isKey)",
+                        )
+                    }
                 }
                 codec.releaseOutputBuffer(index, false)
 

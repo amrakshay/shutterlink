@@ -54,6 +54,8 @@ data class PairingState(
     val incompatible: Boolean = false,
     val reconnecting: String? = null,
     val engines: List<CaptureEngine> = emptyList(),
+    /** False until Nearby has moved the link off Bluetooth onto Wi-Fi. */
+    val linkIsFast: Boolean = false,
 )
 
 /**
@@ -156,6 +158,7 @@ class Pairing(
                         pending = null,
                         problem = null,
                         reconnecting = null,
+                        linkIsFast = false,
                     )
                 }
                 // The controller opens the conversation; whoever speaks first
@@ -189,6 +192,8 @@ class Pairing(
             }
 
             is TransportEvent.VideoAvailable -> _state.update { it.copy(video = event.stream) }
+
+            is TransportEvent.LinkQuality -> _state.update { it.copy(linkIsFast = event.high) }
 
             is TransportEvent.PhotoArriving -> _state.update { it.copy(photoProgress = event.percent) }
 
