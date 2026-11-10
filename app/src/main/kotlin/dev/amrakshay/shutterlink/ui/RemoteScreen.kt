@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import dev.amrakshay.shutterlink.transport.HidShutter
-import dev.amrakshay.shutterlink.transport.ShutterKey
+import dev.amrakshay.shutterlink.hid.ShutterKey
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

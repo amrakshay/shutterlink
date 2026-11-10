@@ -13,7 +13,7 @@ a key. Neither can be checked by a build.
 camera" is worth more than a green tick.
 -->
 
-- [ ] `./gradlew :app:assembleDebug` passes
+- [ ] `./gradlew :app:testDebugUnitTest :app:assembleDebug` passes
 - [ ] Tried on two real phones, named above
 - [ ] If it touches pairing: unpaired both phones and went through setup from scratch
 

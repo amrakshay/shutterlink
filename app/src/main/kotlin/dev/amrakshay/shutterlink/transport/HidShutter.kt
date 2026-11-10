@@ -9,16 +9,11 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.content.Context
 import android.util.Log
+import dev.amrakshay.shutterlink.hid.HidKeyboard
+import dev.amrakshay.shutterlink.hid.ShutterKey
 import java.util.concurrent.Executors
 
 private const val TAG = "ShutterLink/HID"
-
-/** Keyboard usage ids. Volume Up is what commercial selfie remotes send. */
-enum class ShutterKey(val usage: Int, val label: String) {
-    VOLUME_UP(0x80, "Volume up"),
-    VOLUME_DOWN(0x81, "Volume down"),
-    ENTER(0x28, "Enter"),
-}
 
 /**
  * Pretends to be a Bluetooth keyboard so any camera app can be fired.
@@ -59,39 +54,6 @@ class HidShutter(private val context: Context) {
     /** Called whenever [connected] changes, so a screen can follow it. */
     var onHostChanged: ((Boolean) -> Unit)? = null
 
-    /**
-     * A plain 8-byte boot-keyboard report descriptor, with one deliberate
-     * change: the usage and logical maximums go to 0xFF rather than the usual
-     * 0x65. Volume Up is usage 0x80, which is outside the normal range — a
-     * descriptor copied from a textbook silently cannot express the one key
-     * this whole feature needs.
-     */
-    private val descriptor = byteArrayOf(
-        0x05, 0x01, // Usage Page (Generic Desktop)
-        0x09, 0x06, // Usage (Keyboard)
-        0xA1.toByte(), 0x01, // Collection (Application)
-        0x05, 0x07, //   Usage Page (Keyboard)
-        0x19, 0xE0.toByte(), //   Usage Minimum (Left Control)
-        0x29, 0xE7.toByte(), //   Usage Maximum (Right GUI)
-        0x15, 0x00, //   Logical Minimum (0)
-        0x25, 0x01, //   Logical Maximum (1)
-        0x75, 0x01, //   Report Size (1)
-        0x95.toByte(), 0x08, //   Report Count (8)
-        0x81.toByte(), 0x02, //   Input (Data, Variable, Absolute) — modifiers
-        0x95.toByte(), 0x01, //   Report Count (1)
-        0x75, 0x08, //   Report Size (8)
-        0x81.toByte(), 0x01, //   Input (Constant) — reserved
-        0x95.toByte(), 0x06, //   Report Count (6)
-        0x75, 0x08, //   Report Size (8)
-        0x15, 0x00, //   Logical Minimum (0)
-        0x26, 0xFF.toByte(), 0x00, //   Logical Maximum (255) — reaches Volume Up
-        0x05, 0x07, //   Usage Page (Keyboard)
-        0x19, 0x00, //   Usage Minimum (0)
-        0x29, 0xFF.toByte(), //   Usage Maximum (255)
-        0x81.toByte(), 0x00, //   Input (Data, Array)
-        0xC0.toByte(), // End Collection
-    )
-
     private val callback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
             this@HidShutter.registered = registered
@@ -104,13 +66,17 @@ class HidShutter(private val context: Context) {
             if (pluggedDevice != null) {
                 host = pluggedDevice
                 connecting = false
+                prime()
             }
             Log.i(TAG, "HID app registered=$registered plugged=${pluggedDevice != null}")
             onHostChanged?.invoke(connected)
         }
 
         override fun onConnectionStateChanged(device: BluetoothDevice?, state: Int) {
-            if (state == BluetoothProfile.STATE_CONNECTED) host = device
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                host = device
+                prime()
+            }
             if (state == BluetoothProfile.STATE_DISCONNECTED && device == host) host = null
             connecting = state == BluetoothProfile.STATE_CONNECTING
             Log.i(TAG, "HID connection state=$state, connected=$connected")
@@ -150,7 +116,7 @@ class HidShutter(private val context: Context) {
                         "Remote shutter",
                         "amrakshay",
                         BluetoothHidDevice.SUBCLASS1_KEYBOARD,
-                        descriptor,
+                        HidKeyboard.REPORT_DESCRIPTOR,
                     )
                     val ok = hid.registerApp(sdp, null, null, executor, callback)
                     onReady(ok)
@@ -216,19 +182,30 @@ class HidShutter(private val context: Context) {
             .orEmpty()
 
     /**
-     * Press and release a key.
+     * Send one empty report, so the first real keystroke is not the first
+     * report the host has ever seen.
      *
-     * The release matters: a report with the key still held leaves the host
-     * believing a key is stuck down, which on a camera app means continuous
-     * burst or, worse, a volume slider pinned at maximum.
+     * Measured: with everything warm the shutter fired four times out of four,
+     * twice over. But the first press straight after the link came up — or
+     * straight after the camera app launched — was dropped, repeatably. The
+     * host appears to need a moment to finish setting up the input device, and
+     * whatever arrives during it goes nowhere.
+     *
+     * An all-zero report is the one that says "nothing is held", so priming
+     * with it cannot press anything by accident.
      */
+    private fun prime() {
+        val hid = proxy ?: return
+        val to = host ?: return
+        runCatching { hid.sendReport(to, 0, HidKeyboard.releaseReport()) }
+    }
+
+    /** Press and release a key. See [HidKeyboard.releaseReport] on the release. */
     fun press(key: ShutterKey): Boolean {
         val hid = proxy ?: return false
         val to = host ?: return false
-        val down = ByteArray(8).also { it[2] = key.usage.toByte() }
-        val up = ByteArray(8)
-        val sent = hid.sendReport(to, 0, down)
-        hid.sendReport(to, 0, up)
+        val sent = hid.sendReport(to, 0, HidKeyboard.pressReport(key))
+        hid.sendReport(to, 0, HidKeyboard.releaseReport())
         return sent
     }
 

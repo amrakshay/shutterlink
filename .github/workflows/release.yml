@@ -37,6 +37,9 @@ jobs:
           packages: 'platform-tools platforms;android-37.2 build-tools;37.0.0'
 
 
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest --console=plain
+
       - name: Restore the release signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.SHUTTERLINK_KEYSTORE_BASE64 }}

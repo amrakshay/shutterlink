@@ -101,16 +101,34 @@ Volume up is the default because it is what commercial selfie remotes send. It
 is a **setting rather than a constant** precisely because this table is one
 camera app on one phone, and there is no reason to believe another app agrees.
 
-Two traps in measuring this. The file appears on disk well after the shutter
-fires — a four-second check said Volume Up did nothing, when it had worked and
-the photo simply landed later, so allow seven seconds before calling a key
-dead. And a camera app that has just been launched may ignore the first press
-entirely while it starts up; seen once on the OnePlus, with every press after it
-settled working.
+One trap in measuring this: the file appears on disk well after the shutter
+fires. A four-second check said Volume Up did nothing, when it had worked and
+the photo simply landed later. Allow seven seconds before calling a key dead.
 
 ---
 
-## 6 · Why the app is this small
+## 6 · The first keystroke after the link comes up is dropped
+
+Warm, the shutter was perfect: four for four, twice over. But the first press
+straight after the app reconnected, or straight after the camera app launched,
+did nothing — twice, repeatably.
+
+The host needs a moment to finish setting up the input device, and whatever
+arrives during it goes nowhere. So the app now sends one **empty report** as
+soon as a host attaches: the report that says "nothing is held", which cannot
+press anything by accident, and which means the first real keystroke is never
+the first report the host has seen.
+
+Three cold starts afterwards — app force-stopped, camera app force-stopped,
+both reopened, one press — fired three times out of three.
+
+Worth noting how close this came to being filed as a camera-app quirk. The
+first explanation was that the OnePlus camera ignores input while it starts up,
+which fitted the evidence and was wrong. What separated them was running the
+same test with everything warm: 4/4. The failure tracked *the link coming up*,
+not the camera.
+
+## 7 · Why the app is this small
 
 ShutterLink began as a remote viewfinder: 720p H.264 streamed from the camera
 phone, a live preview with zoom in your hand, and the photo sent back for review
