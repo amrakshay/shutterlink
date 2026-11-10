@@ -95,12 +95,24 @@ class HidShutter(private val context: Context) {
     private val callback = object : BluetoothHidDevice.Callback() {
         override fun onAppStatusChanged(pluggedDevice: BluetoothDevice?, registered: Boolean) {
             this@HidShutter.registered = registered
+            // This callback carries the host, and ignoring it cost a bug worth
+            // remembering: after an app restart with the phones already
+            // bonded, the host attaches during registration and
+            // onConnectionStateChanged never reports CONNECTED, because from
+            // the stack's point of view nothing changed. The app sat on its
+            // setup screen with a working keyboard behind it.
+            if (pluggedDevice != null) {
+                host = pluggedDevice
+                connecting = false
+            }
             Log.i(TAG, "HID app registered=$registered plugged=${pluggedDevice != null}")
+            onHostChanged?.invoke(connected)
         }
 
         override fun onConnectionStateChanged(device: BluetoothDevice?, state: Int) {
             if (state == BluetoothProfile.STATE_CONNECTED) host = device
             if (state == BluetoothProfile.STATE_DISCONNECTED && device == host) host = null
+            connecting = state == BluetoothProfile.STATE_CONNECTING
             Log.i(TAG, "HID connection state=$state, connected=$connected")
             onHostChanged?.invoke(connected)
         }
@@ -158,13 +170,50 @@ class HidShutter(private val context: Context) {
     /** The attached host's name, for the UI to show. */
     fun hostName(): String? = runCatching { host?.name }.getOrNull()
 
-    /** Connect to a paired phone so keystrokes have somewhere to go. */
-    fun connectTo(device: BluetoothDevice): Boolean = proxy?.connect(device) == true
+    /**
+     * Connect to a paired phone so keystrokes have somewhere to go.
+     *
+     * Refuses while an attempt is already in flight. Calling connect() again
+     * on a connecting device aborts the first attempt, so a retry loop with no
+     * guard never finishes one.
+     */
+    fun connectTo(device: BluetoothDevice): Boolean {
+        if (connecting || host != null) return false
+        connecting = true
+        return proxy?.connect(device) == true
+    }
 
-    /** Phones already paired over classic Bluetooth — the HID host must be one. */
-    fun pairedDevices(): List<BluetoothDevice> =
+    /** True while an attempt is in flight, so callers do not stamp on it. */
+    var connecting: Boolean = false
+        private set
+
+    /**
+     * Paired devices that could plausibly be the camera phone.
+     *
+     * Filtered, and that matters. The first version offered every bonded
+     * device and the caller tried them all: headphones, a speaker, a TV
+     * remote. Firing HID connects at a pair of earbuds every two seconds is
+     * not harmless — it kept tearing down the attempt that was actually
+     * progressing, and the state log cycled 1, 0, 1, 0 forever while the real
+     * host sat there waiting.
+     *
+     * A phone or a computer can host a keyboard. An audio device cannot.
+     */
+    fun candidateHosts(): List<BluetoothDevice> =
         context.getSystemService(BluetoothManager::class.java)
-            ?.adapter?.bondedDevices?.toList().orEmpty()
+            ?.adapter?.bondedDevices
+            ?.filter {
+                when (runCatching { it.bluetoothClass?.majorDeviceClass }.getOrNull()) {
+                    android.bluetooth.BluetoothClass.Device.Major.AUDIO_VIDEO,
+                    android.bluetooth.BluetoothClass.Device.Major.PERIPHERAL,
+                    android.bluetooth.BluetoothClass.Device.Major.WEARABLE,
+                    android.bluetooth.BluetoothClass.Device.Major.HEALTH,
+                    -> false
+                    else -> true
+                }
+            }
+            ?.toList()
+            .orEmpty()
 
     /**
      * Press and release a key.
@@ -188,5 +237,6 @@ class HidShutter(private val context: Context) {
         proxy = null
         host = null
         registered = false
+        connecting = false
     }
 }

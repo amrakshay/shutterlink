@@ -5,16 +5,24 @@ body:
   - type: markdown
     attributes:
       value: |
-        Please read the scope section of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) first,
-        and the v2 table in [docs/PLAN.md](../blob/main/docs/PLAN.md) — a good many obvious ideas
-        are already written down there with an identifier, and saying "T-6, and here is why it
-        matters to me" is more useful than a fresh issue.
+        Please read the scope section of [CONTRIBUTING.md](../blob/main/CONTRIBUTING.md) first.
 
-        Two things are permanently out of scope: **anything needing the internet**, and **turning
-        this into a general camera app** with filters and editing.
+        ShutterLink is a Bluetooth shutter button and deliberately nothing more. It installs on
+        one phone, the other phone needs nothing, and no part of it touches a network. Proposals
+        that keep all three true are the ones most likely to land.
 
-        A live preview while a *third-party* camera app is open is not a missing feature — it is
-        impossible. That app holds the camera exclusively. See `docs/PLAN.md` §10.
+        **Permanently out of scope:** anything needing the internet, and turning this into a
+        general camera app with filters and editing.
+
+        **A live preview and sending the photo back were both built, measured and removed** — not
+        rejected on principle. On a congested network the preview ran one to two seconds behind
+        reality, and a photo took thirteen seconds to transfer. See
+        [docs/FINDINGS.md](../blob/main/docs/FINDINGS.md), sections 16 and 20, before proposing
+        either again. A proposal that addresses *those measurements* is welcome; one that assumes
+        they were never tried is not.
+
+        A live preview while a third-party camera app holds the camera is not merely hard, it is
+        impossible: that app holds the camera exclusively and no API exposes its frames.
 
   - type: textarea
     id: problem
@@ -29,16 +37,14 @@ body:
     attributes:
       label: What did you have in mind?
 
-  - type: input
-    id: backlog
-    attributes:
-      label: Is this already in the v2 table in docs/PLAN.md?
-      placeholder: "T-6, or: no"
-
   - type: checkboxes
     id: scope
     attributes:
       label: Scope
       options:
         - label: I have read the scope section and believe this fits
+          required: true
+        - label: This needs no internet access
+          required: true
+        - label: This needs nothing installed on the camera phone, or says plainly why it must
           required: true

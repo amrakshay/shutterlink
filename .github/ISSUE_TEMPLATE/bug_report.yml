@@ -5,20 +5,21 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. This app involves two phones, and almost every report turns on
-        *which two* — so please fill in both, even if the problem seems to be on one of them.
+        Thanks for reporting. ShutterLink is installed on one phone and pairs with another that
+        has nothing installed on it. Almost every report turns on *which two phones* — so please
+        fill in both, even if the problem seems to be on one of them.
 
   - type: dropdown
     id: part
     attributes:
       label: Where does it go wrong?
       options:
-        - Finding the other phone
-        - Pairing / connecting
-        - The live preview
-        - Taking the photo
-        - Getting the photo back
-        - Capturing with another camera app
+        - Making this phone visible
+        - The other phone cannot find it
+        - Pairing fails or is refused
+        - Paired, but the app never says "Connected"
+        - Connected, but the shutter does nothing
+        - The self-timer
         - Not sure
     validations:
       required: true
@@ -32,50 +33,52 @@ body:
       required: true
 
   - type: input
-    id: camera-phone
+    id: app-phone
     attributes:
-      label: Camera phone (the one further away) and Android version
-      placeholder: "OnePlus 7 (GM1901), Android 10"
+      label: The phone running ShutterLink, and its Android version
+      description: >
+        This one has to be able to act as a Bluetooth HID device. Not every phone can, and that
+        is the most common cause of "it never connects".
+      placeholder: "Samsung M04 (SM-M045F), Android 14"
     validations:
       required: true
 
   - type: input
-    id: controller-phone
+    id: camera-phone
     attributes:
-      label: Controller phone (the one in your hand) and Android version
-      placeholder: "Pixel 8, Android 15"
+      label: The camera phone, its Android version, and which camera app
+      description: >
+        The camera app matters: it decides whether the keystroke is a shutter. Please name it.
+      placeholder: "OnePlus 7, Android 10, stock OnePlus Camera"
     validations:
       required: true
+
+  - type: input
+    id: key
+    attributes:
+      label: Which key is ShutterLink set to send?
+      description: Shown at the bottom of the screen. Try the others before reporting.
+      placeholder: "Volume up"
 
   - type: textarea
     id: logs
     attributes:
       label: App log
       description: |
-        From either phone, connected over ADB:
+        From the phone running ShutterLink, over ADB:
         ```
-        adb logcat -d | grep -iE "shutterlink|Nearby|WifiP2p"
+        adb logcat -d | grep -i shutterlink
         ```
+        The two lines that matter say `registered=` and `connected=`.
       render: shell
 
   - type: textarea
-    id: connection
+    id: pairing
     attributes:
-      label: Connection details (only if the phones cannot find each other)
+      label: Pairing details (only if they will not pair or stay connected)
       description: |
-        On both phones, please confirm:
-        - Bluetooth on, Wi-Fi on
-        - Location on (Android 10 and 11 refuse BLE scanning without it)
-        - Both granted the permissions the app asked for
-        - Neither is in battery saver
-      render: shell
-
-  - type: checkboxes
-    id: basics
-    attributes:
-      label: Before reporting
-      options:
-        - label: Both phones have the same version of the app installed
-          required: true
-        - label: Bluetooth and Wi-Fi are on, on both phones
-          required: true
+        Please confirm:
+        - Bluetooth is on for both phones
+        - The two phones appear in each other's Bluetooth settings as paired
+        - You tapped "Make this phone visible" before searching from the other phone
+        - Neither phone is in battery saver

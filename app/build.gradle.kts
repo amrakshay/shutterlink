@@ -26,10 +26,10 @@ android {
 
     defaultConfig {
         applicationId = "dev.amrakshay.shutterlink"
-        // Android 10. Chosen because BluetoothHidDevice (the selfie-stick shutter
-        // trick, docs/PLAN.md §10) needs API 28, and Wi-Fi Direct discovery on
-        // Android 10 already needs the location permission the newer path needs
-        // anyway — so 29 is the floor where every feature here is reachable.
+        // Android 10. BluetoothHidDevice — the whole app — arrived in API 28,
+        // and 29 is where the permission model around it settles down. Only the
+        // phone running ShutterLink needs this; the camera phone needs no
+        // particular Android version, because nothing of ours runs on it.
         minSdk = 29
         targetSdk = 36
         versionCode = major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt()
@@ -86,5 +86,4 @@ dependencies {
     implementation(libs.compose.material3)
     debugImplementation(libs.compose.ui.tooling)
 
-    testImplementation(libs.junit)
 }

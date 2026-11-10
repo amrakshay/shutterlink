@@ -71,7 +71,6 @@ echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 |---|---|
 | [`docs/FINDINGS.md`](docs/FINDINGS.md) | What the hardware taught us, including why nearly all of this app was deleted. |
 | [`docs/VERIFY.md`](docs/VERIFY.md) | What has been checked on real phones, and what has not. |
-| [`docs/PLAN.md`](docs/PLAN.md) | The original design. Kept as history; it describes an app that no longer exists. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Scope, house style, how to test, how releases work. |
 | [`SECURITY.md`](SECURITY.md) | The permission list and what pairing does and does not protect. |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, version by version. |

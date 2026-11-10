@@ -7,64 +7,43 @@ All notable changes are recorded here. The format follows
 The version lives in one place, the [`VERSION`](VERSION) file, which the Android build reads at
 configure time — so the APK and the repository cannot ship disagreeing numbers.
 
-While the major version is `0`, the app does not yet do what the README describes. See
-[`docs/PLAN.md`](docs/PLAN.md) for what is built and what is not.
-
 ## [Unreleased]
+
+ShutterLink is a Bluetooth shutter button. It installs on the phone in your hand, pairs with your
+other phone from that phone's own Bluetooth settings, and fires whatever camera app is open there.
+Nothing is installed on the camera phone.
 
 ### Added
 
-- Repository foundations: Gradle build, `:app` and `:protocol` modules, version catalog, checked-in
-  wrapper, CI, release workflow, issue and PR templates, and the project documents.
-- `protocol/` — protocol version constant, the `Role` enum, and peer version negotiation, with
-  tests. A plain JVM module with no Android dependency, enforced by CI.
-- A placeholder screen so the app builds, installs and runs from the first commit. Verified on a
-  OnePlus 7 (GM1901, Android 10).
-- [`docs/PLAN.md`](docs/PLAN.md) — the design and phase plan, including the hardware checks the
-  decisions rest on.
-- **Phase 7 — the review screen, and an honest account of what is unverified.** The photo that
-  arrives opens for review and is only saved to the controller's gallery when you say so. The image
-  is downsampled before display, because a 12MP JPEG decoded whole is ~48MB of bitmap on a phone
-  that is also encoding video. [`docs/VERIFY.md`](docs/VERIFY.md) lists what must be checked on two
-  phones, in dependency order.
-- **Phases 2.5 and 5.5 — firing other camera apps.** ShutterLink can register as a Bluetooth HID
-  keyboard, which is how commercial selfie remotes actually work and the only way to trigger an app
-  whose shutter lives in its own sandbox. The controller can pick which app takes the shot; apps
-  that answer `ACTION_IMAGE_CAPTURE` hand the photo straight back, and the gallery is checked before
-  adding a copy so no app leaves you with two. Untested apps are labelled as such rather than
-  silently offered. **Written but not yet run; the HID half is the least certain thing in the
-  project.**
-- **Phase 6 — surviving real use.** A foreground service so the camera keeps running with the
-  screen off (required, not a convenience — Android stops the camera within seconds otherwise), a
-  tested backoff policy that reconnects without hammering the radio, and thermal stepping that
-  drops the stream quality before the phone throttles itself. **Written but not yet run.**
-- **Phases 3–5 — the live preview, remote control, and the photo coming back.** The camera feeds a
-  hardware H.264 encoder directly through its input Surface, so no frame is copied through the CPU;
-  frames are length-prefixed with a resynchronising magic and sent on a separate channel from the
-  control messages. The controller decodes to a SurfaceView and drives zoom, camera switch, timer
-  and shutter by message, never optimistically. Captures are written to the camera phone's gallery
-  first — that copy is the original and survives a failed transfer — then sent across.
-  **Written but not yet run on two phones.**
-- **Phase 2 (in progress) — the two phones find each other.** A `Transport` seam with a Nearby
-  Connections implementation behind it (BLE discovery, automatic Wi-Fi Direct upgrade), the
-  `Message` protocol with a CBOR codec that drops anything it does not understand rather than
-  breaking the link, a version-aware permission screen that states why each one is needed, and the
-  pairing flow — advertise, discover, confirm a four-digit code on both phones, handshake, measure
-  the round trip. Advertising and the permission flow are verified on hardware; everything from
-  discovery onwards needs a second phone.
-- **Phase 1 — the standalone camera.** Role picker (remembered per phone), CameraX preview,
-  shutter, pinch and stepped zoom bounded by what the device actually reports, a 0/3/10s self-timer
-  with an on-screen countdown, front/back switching, and the last shot as a thumbnail. Capture
-  orientation follows the physical phone rather than the locked-portrait window — a propped-up
-  camera gets turned on its side constantly, and without this every such shot saved rotated. Photos are written straight into
-  `DCIM/ShutterLink` through MediaStore, so they belong to you rather than to the app and need no
-  storage permission on API 29+. The controller half says plainly that it is not built yet.
-- [`design/`](design/) — sixteen UI mocks the app is being built against, viewable in a browser,
-  and the small set of rules they follow (dark throughout, one accent colour, awkward constraints
-  stated on the screen where they happen).
-- Release signing: a 4096-bit key (`CN=shutterlink`, valid to 2054) in the macOS Keychain and in
-  the repository's Actions secrets. The whole chain — Keychain, `tools/release-env.sh`,
-  `assembleRelease`, `apksigner` — is verified, and the minified release APK was smoke-tested on
-  a OnePlus 7.
+- **The shutter.** The app registers as a Bluetooth HID keyboard and sends one keystroke. Verified
+  on a Samsung M04 (Android 14) firing the stock camera on a OnePlus 7 (Android 10): four shots
+  for four presses, 1.3–2.4 s from tap to photo on disk.
+- **Pairing, in the app.** A "Make this phone visible" button puts the phone into the platform's
+  own discoverable mode for five minutes, so the other phone can find it from ordinary Bluetooth
+  settings. The screen follows every step and says what failed when something does.
+- **Self-timer**, 3 or 10 seconds, counted down on the phone in your hand.
+- **A choice of key.** Volume up by default. Camera apps differ, so it is a setting: on the
+  OnePlus stock camera, volume up, volume down, camera, enter and D-pad centre all take a photo,
+  while headset hook and focus do not.
+- **Repository foundations:** Gradle build, version catalog, checked-in wrapper, CI, release
+  workflow, issue and PR templates, and the project documents.
 
-Nothing user-facing works yet. Phase 1 (the standalone camera) is next.
+### Removed
+
+Everything below was built, made to work on hardware, and then removed after measurement. The
+reasoning and the numbers are in [`docs/FINDINGS.md`](docs/FINDINGS.md), sections 16 to 20.
+
+- **The live viewfinder.** H.264 at 720p streamed between the phones. It reached 28.6 fps and
+  about 60 ms of lag on a quiet link, and one to two seconds on a congested home router — which no
+  change inside the app could reach, because the bottleneck was the router.
+- **ShutterLink's own camera.** With no preview to feed, holding CameraX only prevented the real
+  camera app from opening.
+- **The photo transfer and review screen.** A 3 MB photo took about 13 seconds over a congested
+  local network, and far longer over Bluetooth. Walking over to look at the other phone costs
+  nothing and always works.
+- **Google Nearby Connections, and the whole `:protocol` module.** With no video to stream and no
+  photo to carry, a keystroke needs no data link, no discovery protocol and no Play Services.
+- **Nine permissions.** Camera, both location permissions, Wi-Fi state and change, nearby Wi-Fi
+  devices, storage read, and two foreground-service types. Four remain, all Bluetooth.
+- **The standalone camera mode** and the role picker, which only existed because the app used to
+  run on both phones.

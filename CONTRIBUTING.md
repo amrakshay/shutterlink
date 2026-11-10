@@ -11,17 +11,21 @@ measurement; see `docs/FINDINGS.md` 16 and 20 before proposing their return.
 
 Out of scope, and likely to be declined however well built:
 
-- **A general camera app.** Filters, beautification, editing, stickers. If you want your own
-  camera app's processing, ShutterLink can fire it for you (see §10 and §11 of
-  [`docs/PLAN.md`](docs/PLAN.md)) — the editing belongs in that app, not this one.
+- **A general camera app.** Filters, beautification, editing, stickers. ShutterLink fires your
+  own camera app, so its processing is already what you get — the editing belongs in that app,
+  not this one.
 - **Anything that needs the internet.** No cloud relay, no account, no sharing. Two phones in one
-  room, talking directly. Remote-over-the-internet shooting is a different product with a
-  different threat model.
+  room. The app works in a field with no network of any kind, and that is not an accident — it
+  is what is left after everything that needed a network was measured and removed.
 - **Managing the other phone.** File browsing, app control, screen mirroring as a feature in its
   own right. It is a camera remote.
 
-In scope and welcome: lower latency, more phones supported, video recording, accessibility, better
-reconnection, and anything in the v2 table in [`docs/PLAN.md`](docs/PLAN.md).
+- **Anything that has to be installed on the camera phone.** It needs nothing today, which is
+  most of the app's value. A proposal that changes that has to be worth losing it.
+
+In scope and welcome: more phones confirmed working, more camera apps confirmed to honour a key,
+a wider choice of keys, accessibility, a more forgiving pairing flow, and better behaviour when
+the phones drift out of Bluetooth range and back.
 
 ## Getting set up
 
@@ -54,11 +58,11 @@ or measure the skew first and subtract it.
 This matters more here than in most projects. The things that break are **timing, permissions and
 OEM behaviour**: a phone that will not act as an HID device, a camera app that ignores the key
 phone brand and not another, a permission that is optional on Android 10 and mandatory on 14. None
-of that is reachable from a unit test, and emulators cannot do Wi-Fi Direct, BLE or a real camera
-at all.
+of that is reachable from a unit test, and an emulator cannot act as a Bluetooth HID device at
+all.
 
-[`docs/PLAN.md`](docs/PLAN.md) has a record of what has been exercised on hardware and what has
-not. If you change something in that list, please update it.
+[`docs/VERIFY.md`](docs/VERIFY.md) has a record of what has been exercised on hardware and what
+has not. If you change something in that list, please update it.
 
 ## Pull requests
 
@@ -66,7 +70,7 @@ not. If you change something in that list, please update it.
 - Say **which two phones you tested on**, and their Android versions. "OnePlus 7 (Android 10) to
   Pixel 8 (Android 15), paired and fired twelve shots" is worth more than a green CI
   run.
-- Update `docs/PLAN.md` and `CHANGELOG.md` if behaviour changed.
+- Update `docs/VERIFY.md` and `CHANGELOG.md` if behaviour changed.
 
 ## Versioning
 

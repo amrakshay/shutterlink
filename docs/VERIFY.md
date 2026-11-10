@@ -33,6 +33,12 @@ does. Nothing here proves any other phone will.
 | 3s timer | **Passes** — fired after 6.3 s total |
 | 10s timer counts down on screen | **Passes** — read "6" three seconds in |
 | Nothing is left stuck | **Passes** — returns to Ready |
+| Reconnects after the app restarts | **Passes** — reopening the app with the phones still bonded reaches "Connected" in a few seconds with no setup at all |
+
+**The first press right after opening a camera app can be ignored.** Seen once:
+a press about five seconds after launching the OnePlus camera did nothing, and
+every press after the app had settled worked (4 for 4). Give the camera app a
+moment before the first shot.
 
 ## 3 — Not yet checked
 

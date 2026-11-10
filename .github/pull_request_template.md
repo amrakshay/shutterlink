@@ -1,36 +1,26 @@
-## What does this change?
+## What this changes
 
-<!-- What is different for someone using the app, not only what changed in the code. -->
+<!-- One or two sentences. What is different afterwards, and why. -->
 
-## Why?
-
-<!-- Link an issue if there is one. -->
-
-## How was it tested?
+## How it was tested
 
 <!--
-This project breaks on timing, permissions and OEM behaviour — a preview that stalls when the
-screen dims, a Wi-Fi Direct group that forms on one phone brand and not another, a permission
-that is optional on Android 10 and mandatory on 14. The test suite cannot catch any of that, so
-this section matters more than the CI badge.
+Real hardware beats CI here. The app rests on one hardware assumption — that the
+phone running it can act as a Bluetooth HID device — and on camera apps honouring
+a key. Neither can be checked by a build.
 
-Name BOTH phones. For example: "OnePlus 7 (Android 10) as camera, Pixel 8 (Android 15) as
-controller. Held the preview for ten minutes, took twelve shots, walked out of Wi-Fi range once
-and let it reconnect."
+"Pixel 8 (Android 15) paired with a Redmi Note 12, fired twelve shots in the stock
+camera" is worth more than a green tick.
 -->
 
-- [ ] `./gradlew :protocol:test` passes
 - [ ] `./gradlew :app:assembleDebug` passes
-- [ ] Tried on two real phones
+- [ ] Tried on two real phones, named above
+- [ ] If it touches pairing: unpaired both phones and went through setup from scratch
 
-**Phones tested:**
+## Checks
 
-## Checklist
-
-- [ ] `protocol/` still has no `android.*` import, so its tests still run without a device
-- [ ] Any new transport code sits behind the `Transport` interface, not beside it
-- [ ] Any new permission is added to the table in `SECURITY.md` with a reason
-- [ ] Preview-pipeline changes include before/after numbers from the debug overlay
-- [ ] `docs/PLAN.md` updated if what is verified on hardware changed
+- [ ] No new permission. If there is one, `SECURITY.md` explains it and CI's audit will agree
+- [ ] No new dependency that reaches the network
+- [ ] Nothing new is required on the camera phone
+- [ ] `docs/VERIFY.md` updated if what has been checked on hardware changed
 - [ ] `CHANGELOG.md` updated if behaviour changed
-- [ ] No new dependency, or a paragraph in the PR saying why there is one

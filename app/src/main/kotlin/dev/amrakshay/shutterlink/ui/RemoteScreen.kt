@@ -124,7 +124,11 @@ fun RemoteScreen() {
             override fun onReceive(c: Context?, intent: Intent?) {
                 val device: BluetoothDevice? =
                     intent?.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
-                if (device != null) hid.connectTo(device)
+                val bonded = intent?.getIntExtra(
+                    BluetoothDevice.EXTRA_BOND_STATE,
+                    BluetoothDevice.BOND_NONE,
+                ) == BluetoothDevice.BOND_BONDED
+                if (device != null && bonded) hid.connectTo(device)
             }
         }
         val filter = IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED)
@@ -132,12 +136,17 @@ fun RemoteScreen() {
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
 
-    // Attach to anything already paired, so a second session needs no setup.
+    // Attach to a phone that is already paired, so a second session needs no
+    // setup at all.
+    //
+    // Deliberately unhurried. HidShutter refuses an overlapping attempt, and
+    // the interval is long enough for one to finish: a tighter loop aborted
+    // each attempt as it started and never connected at all.
     LaunchedEffect(registered) {
         if (!registered) return@LaunchedEffect
         while (!connected) {
-            hid.pairedDevices().forEach { hid.connectTo(it) }
-            delay(2000)
+            hid.candidateHosts().firstOrNull()?.let { hid.connectTo(it) }
+            delay(6000)
         }
     }
 
