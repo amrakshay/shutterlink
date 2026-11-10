@@ -25,6 +25,7 @@ opposite ends of the permission regime.
 | 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
 | 11 | Preview lags behind reality | HD pushed down a Bluetooth link before Nearby upgrades to Wi-Fi | **Fixed** |
 | 12 | Gives up reconnecting after ~25s, and stays given-up when the phone returns | Retry budget counted attempts, not time; no rejoin on rediscovery | **Fixed** |
+| 13 | Feed juddery — 2.9 fps on an idle Wi-Fi link | Auto-exposure lengthened exposures; the camera was never asked for a frame rate | **Fixed** — 28.6 fps |
 
 ---
 
@@ -289,3 +290,56 @@ After the rejoin the control round trip read 881 ms, then 554 ms, against 183 ms
 before the cut. Probably Wi-Fi settling, but it was not watched long enough to
 be sure. If latency stays high after every reconnect, something is not being
 rebuilt cleanly.
+
+## 13 · The camera was behaving like a stills camera, not a webcam
+
+Reported as "the feed is not clean and smooth as on a real camera — it should
+be fast since it is on Wi-Fi". The instinct was right and led straight to it.
+
+Measured: **2.9 fps** at 720p, with **zero** blocked writes and the link
+reported HIGH. 2.9 fps at 720p is about 50 KB/s; Wi-Fi Direct carries tens of
+megabytes a second. We were using roughly a thousandth of the link. The
+transport was never the constraint — there was nothing to send.
+
+Nobody had told the camera what frame rate to produce. Camera2's auto-exposure
+optimises for a good-looking photograph: in a dim room it lengthens the
+exposure, and a 300 ms exposure cannot yield more than about three frames a
+second however fast the network is.
+
+Video-call apps look grainy in poor light precisely because they refuse this
+trade — they pin the frame rate, which caps exposure, so the picture gets
+darker and noisier rather than slower. For a viewfinder someone is framing a
+shot with, smooth and dim beats bright and stuttering.
+
+The range is read from `CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES` and the one
+with the highest **lower** bound is chosen. Both parts matter: asking for a
+range the device does not advertise makes binding fail outright, and a range
+like `[15, 30]` still lets auto-exposure sink back to 15 — only the floor holds
+it up. The OnePlus accepted `[30, 30]`.
+
+CameraX 1.6.2 has no `setTargetFrameRate` on `Preview.Builder`, so this goes
+through Camera2 interop.
+
+```
+before:  2.9 fps
+after:  28.6 fps   (949 frames over 33.2s, against real elapsed time)
+```
+
+### Two corrections this produced
+
+The first measurement read 38.6 fps — above the pinned 30, so it could not be
+true. The sampling interval was longer than the `sleep` it was divided by,
+because collecting each sample takes a couple of seconds. Re-measured against
+wall-clock timestamps.
+
+And the `write blocked 1001ms` lines from FINDINGS §11 were suspiciously
+*exactly* 1000 ms: that is the wait quantum inside Java's `PipedInputStream`,
+not a bandwidth measurement. The Bluetooth conclusion there still stands on its
+own evidence, but that particular number was over-read as if it measured the
+link.
+
+### Still open
+
+The control round trip occasionally spikes — 1597 ms and 1118 ms were seen
+among otherwise 90-170 ms readings. Not understood. Worth watching during the
+endurance run.
