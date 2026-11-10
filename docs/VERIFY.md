@@ -138,10 +138,31 @@ the camera session into `StreamingService` behind a `LifecycleService`. What is
 fixed is that waking the phone brings the picture back instead of leaving a dead
 session that looks connected.
 
-### 3. Reconnect after going out of range
+### 3. ~~Reconnect after going out of range~~ — passes 2026-11-10
 
-Never tested. Needs two people or a long corridor. The backoff policy itself is
-unit-tested; what is unknown is whether Nearby reports the drop promptly.
+Simulated by cutting the controller's Wi-Fi while keeping adb over USB, so both
+phones could be watched through the drop and the recovery.
+
+```
+20s after cut:      "Reconnecting - attempt 3 of 20"
+30s after restore:  streaming again, with no taps on either phone
+                    "Picture is rough for a moment ... still on Bluetooth"
+12:59:52  encoder at 640x360     <- starts low
+13:00:24  encoder at 1280x720    <- steps up once Wi-Fi takes over
+first picture after rejoin: 297ms
+```
+
+Two bugs were found and fixed getting here; see FINDINGS §12.
+
+**Open observation:** the control round trip sat at 881 ms, then 554 ms, after
+the rejoin, against a 183 ms baseline before the cut. It may simply be Wi-Fi
+reassociating and settling, but it was not watched for long enough to say. Worth
+a longer look during the endurance run — if latency stays elevated after every
+reconnect, something is not being rebuilt cleanly.
+
+**Caveat on the method:** cutting Wi-Fi is not identical to walking out of
+range, because Bluetooth stays up. A real walk kills both radios together.
+Worth doing once for real.
 
 ### 4. A 20-minute session
 

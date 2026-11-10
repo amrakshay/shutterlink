@@ -24,6 +24,7 @@ opposite ends of the permission regime.
 | 9 | "Trouble looking for phones: 8002" shown as an error | Reconnect re-calls `discover()`; Nearby answers ALREADY_DISCOVERING | **Fixed** |
 | 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
 | 11 | Preview lags behind reality | HD pushed down a Bluetooth link before Nearby upgrades to Wi-Fi | **Fixed** |
+| 12 | Gives up reconnecting after ~25s, and stays given-up when the phone returns | Retry budget counted attempts, not time; no rejoin on rediscovery | **Fixed** |
 
 ---
 
@@ -257,3 +258,34 @@ Two careful, plausible diagnoses were both wrong, and each would have produced a
 confident commit that fixed nothing. The thing that found the cause was logging
 how long a write blocked — a direct measurement of the suspected mechanism
 rather than of its consequences.
+
+## 12 · Reconnection gave up before anyone could walk back
+
+Two faults, found by cutting the controller's Wi-Fi and watching both phones.
+
+**The retry budget was a time budget in disguise.** Five attempts with the
+backoff capped at 8s is about 25 seconds of wall clock, and the controller was
+already at "attempt 4 of 5" twenty-five seconds in. Nobody walks out of a room
+and back in that time. The attempt count was never the meaningful number. It is
+now 20 attempts — around two and a half minutes — and the test asserts the
+**window in seconds** rather than the count, so tuning the backoff later cannot
+silently shrink it again.
+
+**It stayed given-up while the phone sat in front of it.** After the link
+returned, the controller had rediscovered the camera and was showing a Connect
+button. Someone had to tap it — while standing across the room, in the shot,
+unable to reach either screen. That is exactly the situation the app exists for.
+A phone already approved in this session is now rejoined automatically.
+
+That second fix means a reconnection does not ask for the four-digit code
+again, which is a deliberate relaxation and is written up in SECURITY.md rather
+than left implicit. The code stops a stranger connecting to an unattended
+phone; it does not serve that purpose when demanded from the person already in
+the photo.
+
+### Still open
+
+After the rejoin the control round trip read 881 ms, then 554 ms, against 183 ms
+before the cut. Probably Wi-Fi settling, but it was not watched long enough to
+be sure. If latency stays high after every reconnect, something is not being
+rebuilt cleanly.

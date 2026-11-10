@@ -109,6 +109,15 @@ class Pairing(
     /** True once this pairing has been connected at least once. */
     private var everConnected = false
 
+    /**
+     * The phone we were connected to, so it can be rejoined without making
+     * someone walk back and tap through pairing again.
+     *
+     * Only ever set from a connection the person already approved with the
+     * code, and only ever used within this session — see onEvent.
+     */
+    private var knownPeerName: String? = null
+
     /** payload id -> what the camera phone called it, from PhotoReady. */
     private val expectedPhotos = mutableMapOf<Long, Message.PhotoReady>()
 
@@ -135,20 +144,42 @@ class Pairing(
 
     private fun onEvent(event: TransportEvent) {
         when (event) {
-            is TransportEvent.PeerFound -> _state.update {
-                it.copy(peers = (it.peers.filterNot { p -> p.id == event.peer.id } + event.peer))
+            is TransportEvent.PeerFound -> {
+                _state.update {
+                    it.copy(peers = (it.peers.filterNot { p -> p.id == event.peer.id } + event.peer))
+                }
+                // The phone we lost has come back. Rejoin it rather than
+                // leaving a Connect button for someone who is standing across
+                // the room and cannot reach the screen — which is the entire
+                // situation this app is for.
+                if (_state.value.connected == null &&
+                    role == Role.CONTROLLER &&
+                    event.peer.name == knownPeerName
+                ) {
+                    transport.requestConnection(myName, event.peer)
+                }
             }
 
             is TransportEvent.PeerLost -> _state.update {
                 it.copy(peers = it.peers.filterNot { p -> p.id == event.id })
             }
 
-            is TransportEvent.ConnectionRequested -> _state.update {
-                it.copy(pending = event.peer to event.code)
+            is TransportEvent.ConnectionRequested -> {
+                // Rejoining a phone already approved in this session does not
+                // ask for the code again. The check exists so a stranger cannot
+                // connect to an unattended phone; it is not served by demanding
+                // it again from someone who is standing in the shot. A fresh
+                // peer, or a new session, still asks.
+                if (everConnected && event.peer.name == knownPeerName) {
+                    transport.accept(event.peer.id)
+                } else {
+                    _state.update { it.copy(pending = event.peer to event.code) }
+                }
             }
 
             is TransportEvent.Connected -> {
                 everConnected = true
+                knownPeerName = event.peer.name
                 retryJob?.cancel()
                 retryJob = null
                 reconnect.succeeded()

@@ -49,6 +49,24 @@ class ReconnectTest {
     }
 
     @Test
+    fun `the default gives up on time, not after a handful of tries`() {
+        // The real budget is wall-clock. Five attempts looked reasonable and
+        // ran out in ~25s on the phones, before anyone could walk out of a
+        // room and back. This pins the window rather than the attempt count,
+        // so tuning the backoff cannot silently shrink it again.
+        val r = Reconnect()
+        var total = 0L
+        while (!r.giveUp) {
+            total += r.nextDelayMillis()
+            r.attempted()
+        }
+        assertTrue(
+            "the retry window should be at least 90s, was ${total / 1000}s",
+            total >= 90_000,
+        )
+    }
+
+    @Test
     fun `it gives up after the configured number of attempts`() {
         val r = Reconnect(maxAttempts = 3)
         assertFalse(r.giveUp)

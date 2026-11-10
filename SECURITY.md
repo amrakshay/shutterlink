@@ -16,6 +16,16 @@ honest about what is and is not protected.
   permission path in the app's design. The far phone keeps the original; the near phone gets a
   copy over the direct link.
 
+**Reconnecting does not ask for the code again.** Within one session, if the
+link drops and the same phone reappears, it is rejoined automatically. The code
+check exists so that a stranger in Bluetooth range cannot connect to a phone
+nobody is watching — it is not served by demanding the code again from someone
+standing across the room in the shot, who cannot reach either screen. A phone
+that was never approved, or any phone after the app restarts, still has to be
+confirmed on both screens. The peer is matched by the name it advertises, which
+another device could claim; the window is one session, after an approved
+connection, and the consequence is a reconnection the user wanted anyway.
+
 **What it does not protect against, and cannot:**
 
 - **Someone with physical access to either phone.** If they can unlock it, they can use the app.

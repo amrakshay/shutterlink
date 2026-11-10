@@ -15,7 +15,13 @@ package dev.amrakshay.shutterlink.protocol
  * tight loop only drains both batteries.
  */
 class Reconnect(
-    private val maxAttempts: Int = 5,
+    // 20, not 5. What matters is the wall-clock window, not the attempt count:
+    // with the delays capped at 8s, five attempts gave up after about 25
+    // seconds — measured on the phones, where the controller had already said
+    // "could not get back" before someone could walk to the next room and
+    // return. Twenty attempts is roughly two and a half minutes, which covers
+    // the thing people actually do.
+    private val maxAttempts: Int = 20,
     private val firstDelayMillis: Long = 0,
     private val baseDelayMillis: Long = 1_000,
     private val maxDelayMillis: Long = 8_000,
