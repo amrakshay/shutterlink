@@ -110,7 +110,7 @@
         </provider>
 
         <service
-            android:name=".camera.StreamingService"
+            android:name=".camera.CameraHoldService"
             android:exported="false"
             android:foregroundServiceType="camera" />
     </application>

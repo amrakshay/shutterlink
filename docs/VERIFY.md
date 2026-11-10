@@ -37,44 +37,47 @@ adb -s <phone> logcat -s ShutterLink/Transport ShutterLink/Encoder ShutterLink/D
 **If discovery finds nothing:** check both phones have Bluetooth *and* Wi-Fi on,
 location on (Android ≤ 12), and neither is in battery saver.
 
-## 2 — Phase 3: the picture  ✅ passed 2026-11-09
+## 2 — The shutter  ✅ passed 2026-11-10
+
+Replaces the old "the picture" section. There is no live preview any more; see
+FINDINGS §16 for why it was removed.
+
+| Check | Result |
+|---|---|
+| Controller shows "Ready" once connected | **Passes** |
+| Far phone's battery and latency on the top strip | **Passes** — 76%, 60–200 ms |
+| Shutter press reaches the camera | **Passes** — 19 ms and 165 ms on two instrumented runs |
+| Camera acts on it | **Passes** — 18 ms from message received to `takePicture` |
+| Capture completes | **Passes** — about 600 ms at `MAXIMIZE_QUALITY` |
+
+**Measure shutter lag on each phone's own clock, never across devices.** The
+OnePlus runs 2.59 s ahead of the Mac, which turned a 165 ms result into an
+apparent 2.9 s one. FINDINGS §16 has the detail.
+
+## 3 — The controls  ✅ passed 2026-11-10
 
 | Check | What good looks like |
 |---|---|
-| Preview appears | Within ~2s of connecting |
-| Latency | **Target: under 200 ms glass-to-glass.** Point the camera at a stopwatch on a third screen and photograph both together |
-| Frame counter | Climbs steadily; the dropped counter stays near zero |
-| Recovery | Cover the camera, uncover: picture returns without reconnecting |
-| Late join | Disconnect the controller and reconnect: picture returns at the next keyframe, not never |
-
-The last two exercise the config-before-keyframe logic, which is the part most
-likely to be wrong and shows up as a permanently black viewfinder.
-
-**If the preview is black but frames are counting:** the decoder is getting
-pictures before setup bytes. **If no frames count at all:** the encoder or the
-stream channel, not the decoder.
-
-## 3 — Phase 4: the controls  ✅ passed 2026-11-09
-
-| Check | What good looks like |
-|---|---|
-| Zoom slider | The far camera zooms; the preview follows |
-| Flip | Switches cameras; preview resumes within ~2s |
+| Zoom slider | Sends; the effect is visible in the photo that comes back, not before |
+| Flip | Switches cameras; the rig screen's "Camera" stat changes |
 | Timer | Countdown appears on **both** screens |
-| Shutter | Fires; the camera phone's screen shows the count going up |
+| Shutter | Fires; the camera phone's shot count goes up |
 
 Nothing here updates optimistically — if a control appears to do nothing, check
-whether the message arrived before assuming the UI is broken.
+whether the message arrived before assuming the UI is broken. Zoom is now a
+blind control: nothing confirms it until the photo arrives.
 
-## 4 — Phase 5: the photo comes back  ✅ passed 2026-11-09
+## 4 — The photo comes back  ✅ passed 2026-11-10
 
-| Check | What good looks like |
+| Check | Result |
 |---|---|
-| Camera phone's gallery | The photo is there immediately, full size |
-| Transfer | Progress appears on the controller |
-| Review screen | Opens with the photo |
+| Camera phone's gallery | **Passes** — full size, immediately |
+| Transfer progress on the controller | **Passes** — percentage, and says when it is on Bluetooth |
+| Review screen opens with the photo | **Passes** — renders, 3065 KB |
+| Orientation | **Passes** — phone on its side returned an upright landscape photo |
 | Save | Only then does it appear in the controller's gallery |
-| Retake | Returns to the viewfinder, preview still live |
+| Retake | Returns to the shutter |
+| Whole loop | **About 7 s** tap to photo on screen |
 
 **The camera phone's copy must exist even if the transfer fails.** Test that
 deliberately: start a capture and walk out of range.
@@ -84,8 +87,8 @@ deliberately: start a capture and walk out of range.
 | Checked | Result |
 |---|---|
 | Foreground service runs, `isForeground=true`, notification posted | **Passes** |
-| Streaming continues with the screen off | **Fails** — the frame counter freezes; the control channel stays alive, the camera does not. See FINDINGS §8 |
-| Recovers on wake | **Inconclusive** — another app took the foreground on wake, so our activity never resumed |
+| Shutter works with the camera phone's screen off | **Not retested since the preview was removed** — the old failure was the frame counter freezing, which no longer exists as a symptom. The camera is still taken away on lock, and the screen-on rebind still covers it |
+| Recovers on wake | **Passes** — the screen-on receiver rebinds the camera |
 | Reconnect after going out of range | Not tested |
 | 20-minute session | Not tested |
 
@@ -95,11 +98,11 @@ foreground.
 
 | Check | What good looks like |
 |---|---|
-| Screen off | Streaming continues; the notification is visible |
+| Screen off | A shutter press still takes a photo; the notification is visible |
 | Notification | Says the camera is in use, and stops it when tapped |
 | Walk out of range | Controller says it is reconnecting, with an attempt count |
-| Walk back | Reconnects on its own, preview returns |
-| Long session | 20 minutes without intervention; watch for thermal step-downs in the status |
+| Walk back | Reconnects on its own; the controller returns to Ready |
+| Long session | 20 minutes without intervention; watch the thermal chip on the controller |
 
 ## 5b — Tomorrow's list
 

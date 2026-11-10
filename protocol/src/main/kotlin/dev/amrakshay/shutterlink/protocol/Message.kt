@@ -36,16 +36,6 @@ sealed interface Message {
         val hasBackCamera: Boolean,
         val minZoom: Float,
         val maxZoom: Float,
-        /**
-         * How far the controller must rotate the video to show it upright.
-         *
-         * The camera sensor is landscape and the encoder is fed its buffers
-         * untransformed, so a phone propped up in portrait produces frames lying
-         * on their side. CameraX knows the angle; only it can, since it depends
-         * on the sensor mounting and the phone's current rotation. So it is sent
-         * rather than guessed at the other end.
-         */
-        val rotationDegrees: Int = 0,
     ) : Message
 
     /**
@@ -73,14 +63,6 @@ sealed interface Message {
     data class Bye(val reason: String) : Message
 
     // ---- Control. The controller asks; the camera does and reports back. ----
-
-    @Serializable
-    @SerialName("start_preview")
-    data class StartPreview(val width: Int, val height: Int, val fps: Int, val bitrate: Int) : Message
-
-    @Serializable
-    @SerialName("stop_preview")
-    data object StopPreview : Message
 
     /** 0..1 across the camera's own range, so the controller never has to know its ratios. */
     @Serializable
@@ -129,7 +111,8 @@ sealed interface Message {
     data class Status(
         val batteryPercent: Int,
         val thermal: String,
-        val streaming: Boolean,
+        /** The camera is bound and a shutter press would be honoured right now. */
+        val ready: Boolean,
         val shotsTaken: Int,
     ) : Message
 
@@ -143,7 +126,7 @@ sealed interface Message {
     data class DeletePhoto(val name: String) : Message
 }
 
-/** ShutterLink's own camera. Always present, always the one with a live preview. */
+/** ShutterLink's own camera. Always present, and the only one that honours zoom and the timer. */
 const val ENGINE_SHUTTERLINK: String = "shutterlink"
 
 /**

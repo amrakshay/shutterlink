@@ -6,6 +6,8 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.PowerManager
 import android.net.Uri
+import android.view.OrientationEventListener
+import android.view.Surface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
@@ -47,9 +49,7 @@ import androidx.core.content.ContextCompat
 import dev.amrakshay.shutterlink.camera.CameraSession
 import dev.amrakshay.shutterlink.camera.CaptureEngines
 import dev.amrakshay.shutterlink.camera.PhotoStore
-import dev.amrakshay.shutterlink.camera.PreviewEncoder
-import dev.amrakshay.shutterlink.camera.StreamQuality
-import dev.amrakshay.shutterlink.camera.StreamingService
+import dev.amrakshay.shutterlink.camera.CameraHoldService
 import dev.amrakshay.shutterlink.protocol.ENGINE_SHUTTERLINK
 import dev.amrakshay.shutterlink.protocol.Message
 import dev.amrakshay.shutterlink.transport.Pairing
@@ -58,72 +58,45 @@ import kotlinx.coroutines.delay
 import java.io.File
 
 /**
- * The camera phone once it is connected: streaming, and doing as it is told.
+ * The camera phone once it is connected: holding the camera, and doing as it is
+ * told.
  *
  * Shows almost nothing on purpose. This phone is propped up across the room,
  * and a bright screen full of controls would both light the subject and invite
  * someone to touch it.
+ *
+ * It sends no live picture. The camera is bound for stills only and sits idle
+ * between shots, which is the whole point of the capture-and-review design: a
+ * phone that is not encoding video at thirty frames a second stays cool, keeps
+ * its battery, and has nothing to fall behind on.
  */
 @Composable
-fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
+fun CameraRigScreen(pairing: Pairing, onEnd: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
     val session = remember { CameraSession(context) }
     val photos = remember { PhotoStore(context) }
 
-    var encoder by remember { mutableStateOf<PreviewEncoder?>(null) }
     var front by remember { mutableStateOf(false) }
-    // Two things cap the quality, and they must not fight over one variable.
-    //
-    // The link: Nearby begins every connection on Bluetooth and upgrades to
-    // Wi-Fi when it decides to — measured at 35 seconds on the test pair.
-    // Sending 720p at 3 Mbps during that window pushes far more than Bluetooth
-    // carries: the encoder's writes blocked for a full second at a time and the
-    // picture fell behind and never caught up. So until the link is fast, LOW.
-    //
-    // The phone: thermal pressure lowers the ceiling and never raises it.
-    //
-    // Whichever is lower wins. Deriving it, rather than having both assign to
-    // the same state, is what stops the link upgrade from quietly undoing a
-    // thermal step-down.
-    var thermalCap by remember { mutableStateOf(StreamQuality.HIGH) }
-    // A third cap, from what the link is actually managing rather than what
-    // Nearby says it is capable of. The plan called for this from the start and
-    // it was never built; a congested home Wi-Fi showed why it is needed.
-    var congestionCap by remember { mutableStateOf(StreamQuality.HIGH) }
-    val quality = when {
-        !linkIsFast -> StreamQuality.LOW
-        congestionCap.height < thermalCap.height -> congestionCap
-        else -> thermalCap
-    }
-    var streaming by remember { mutableStateOf(false) }
+    var ready by remember { mutableStateOf(false) }
     var shots by remember { mutableIntStateOf(0) }
     var countdown by remember { mutableStateOf<Int?>(null) }
     var problem by remember { mutableStateOf<String?>(null) }
-    var rotation by remember { mutableIntStateOf(0) }
+    var thermal by remember { mutableStateOf("none") }
 
-    // Bumped on every resume to force a rebind.
+    // Bumped on every screen-on to force a rebind.
     //
-    // CameraX unbinds when the activity stops, which is what happens the moment
-    // the screen locks. Nothing brought it back: the binding effect is keyed on
-    // the camera and the quality, neither of which changed, so waking the phone
-    // left a live connection with a dead camera — the control channel still
-    // answering pings while the picture stayed frozen. That reads as a broken
-    // app rather than a sleeping one.
+    // The system takes the camera away when the device locks, and CameraX does
+    // not take it back by itself. Nothing noticed: the binding effect is keyed
+    // on the camera selector, which has not changed, so waking the phone left a
+    // live connection with a dead camera — the control channel still answering
+    // pings while the shutter did nothing.
+    //
+    // Measured: with the app in the foreground the activity never leaves
+    // RESUMED when the screen goes off, so a lifecycle observer never fires.
+    // ACTION_SCREEN_ON and ACTION_USER_PRESENT are the events that do arrive.
     var bindEpoch by remember { mutableIntStateOf(0) }
-
-    // Rebuilt on the screen coming back, not on ON_RESUME.
-    //
-    // Measured: with the app in the foreground and nothing else competing, the
-    // stream stops when the screen goes off and the activity never leaves
-    // RESUMED — so a lifecycle observer never fires. What actually happens is
-    // that the system takes the camera away when the device locks, which CameraX
-    // cannot undo by itself once the encoder's input surface has gone with it.
-    //
-    // ACTION_SCREEN_ON and ACTION_USER_PRESENT are the events that do arrive, so
-    // the whole pipeline — encoder, binding, video channel — is rebuilt from
-    // there.
     DisposableEffect(Unit) {
         val receiver = object : android.content.BroadcastReceiver() {
             override fun onReceive(c: Context?, intent: Intent?) {
@@ -142,71 +115,66 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
         )
         onDispose { runCatching { context.unregisterReceiver(receiver) } }
     }
-    var lastFacts by remember { mutableStateOf<dev.amrakshay.shutterlink.camera.CameraFacts?>(null) }
 
-    // Start, and restart whenever the camera or the quality changes. Both need
-    // the encoder torn down and rebuilt: the encoder's input Surface is fixed at
-    // the size it was created with.
-    LaunchedEffect(front, quality, bindEpoch) {
+    // Bind for stills, and rebind on a flip or a wake.
+    LaunchedEffect(front, bindEpoch) {
         runCatching {
-            encoder?.stop()
-            val sink = pairing.startVideo()
-            if (sink == null) {
-                problem = "No connection to stream to"
-                return@runCatching
-            }
-            val fresh = PreviewEncoder(
-                quality = quality,
-                sink = sink,
-                onBroken = { problem = "The encoder stopped" },
-                onCongested = {
-                    val next = StreamQuality.ladder.firstOrNull { it.height < quality.height }
-                    if (next != null) congestionCap = next
-                },
-            )
-            val surface = fresh.start()
-            val facts = session.bindForStreaming(lifecycleOwner, surface, front) { degrees ->
-                rotation = degrees
-            }
-            encoder = fresh
-            lastFacts = facts
-            streaming = true
-
-            // Now that the camera is bound we know what it can really do, so the
-            // controller can draw controls that match rather than guesses.
-            pairing.send(
+            val facts = session.bindForCapture(lifecycleOwner, front)
+            ready = true
+            problem = null
+            pairing.publishCapabilities(
                 Message.Capabilities(
                     deviceName = thisPhoneName(),
                     hasFrontCamera = facts.hasFrontCamera,
                     hasBackCamera = facts.hasBackCamera,
                     minZoom = facts.minZoom,
                     maxZoom = facts.maxZoom,
-                    rotationDegrees = rotation,
                 ),
             )
         }.onFailure {
             problem = it.message ?: "The camera would not start"
-            streaming = false
+            ready = false
         }
     }
 
-    // Without this the camera stops within seconds of the screen going dark,
-    // which is exactly the state this phone is meant to sit in.
+    // The activity is locked to portrait, so the display rotation never changes
+    // — which means CameraX would tag every capture as portrait however the
+    // phone is actually being held. A camera that gets propped up WILL be
+    // turned on its side, so the physical orientation has to come from the
+    // sensor instead.
+    //
+    // This matters more here than anywhere else in the app: with no live view,
+    // the photo that comes back is the only thing anyone sees. A sideways one
+    // is not a cosmetic problem, it is the entire output being wrong.
     DisposableEffect(Unit) {
-        StreamingService.start(context)
+        val listener = object : OrientationEventListener(context) {
+            override fun onOrientationChanged(degrees: Int) {
+                if (degrees == ORIENTATION_UNKNOWN) return
+                session.imageCapture?.targetRotation = when (degrees) {
+                    in 45 until 135 -> Surface.ROTATION_270
+                    in 135 until 225 -> Surface.ROTATION_180
+                    in 225 until 315 -> Surface.ROTATION_90
+                    else -> Surface.ROTATION_0
+                }
+            }
+        }
+        listener.enable()
+        onDispose { listener.disable() }
+    }
+
+    // Without this the camera is taken away within seconds of the screen going
+    // dark, which is exactly the state this phone is meant to sit in.
+    DisposableEffect(Unit) {
+        CameraHoldService.start(context)
         onDispose {
-            StreamingService.stop(context)
-            encoder?.stop()
+            CameraHoldService.stop(context)
             session.release()
-            pairing.stopVideo()
         }
     }
 
-    // Step the quality down before the phone throttles itself. A stream that
-    // quietly drops to 540p is far better than one that stutters because the
-    // encoder is being thermally starved, and better than a phone that gets too
-    // hot to hold halfway through a shoot.
-    var thermal by remember { mutableStateOf("none") }
+    // Reported to the controller rather than acted on. Nothing is being encoded
+    // any more, so there is no quality to step down — but a phone that is
+    // cooking is still worth saying out loud before a long shoot.
     DisposableEffect(Unit) {
         val power = context.getSystemService(PowerManager::class.java)
         val listener = PowerManager.OnThermalStatusChangedListener { status ->
@@ -217,14 +185,6 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
                 PowerManager.THERMAL_STATUS_SEVERE -> "severe"
                 else -> "critical"
             }
-            val wanted = when {
-                status >= PowerManager.THERMAL_STATUS_SEVERE -> StreamQuality.LOW
-                status >= PowerManager.THERMAL_STATUS_MODERATE -> StreamQuality.MEDIUM
-                else -> null
-            }
-            // Only ever downwards. Climbing back the moment the phone cools
-            // would oscillate, and each change costs a visible restart.
-            if (wanted != null && wanted.height < thermalCap.height) thermalCap = wanted
         }
         power.addThermalStatusListener(ContextCompat.getMainExecutor(context), listener)
         onDispose { power.removeThermalStatusListener(listener) }
@@ -232,29 +192,6 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
 
     LaunchedEffect(Unit) {
         pairing.send(Message.Engines(CaptureEngines.discover(context)))
-    }
-
-    // Keyed on BOTH, and that matters.
-    //
-    // CameraX reports the angle asynchronously, usually after bindForStreaming
-    // has already returned and sent Capabilities — so the first Capabilities
-    // carries 0. Keyed on `rotation` alone, this resend fired while lastFacts
-    // was still null, returned early, and never ran again: the controller was
-    // left believing the picture was upright and displayed it on its side.
-    //
-    // It also covers the phone being turned over mid-session.
-    LaunchedEffect(rotation, lastFacts) {
-        val facts = lastFacts ?: return@LaunchedEffect
-        pairing.send(
-            Message.Capabilities(
-                deviceName = thisPhoneName(),
-                hasFrontCamera = facts.hasFrontCamera,
-                hasBackCamera = facts.hasBackCamera,
-                minZoom = facts.minZoom,
-                maxZoom = facts.maxZoom,
-                rotationDegrees = rotation,
-            ),
-        )
     }
 
     // Handing the shot to another camera app, and getting it back. The launcher
@@ -304,24 +241,8 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
 
                 is Message.SwitchCamera -> front = message.front
 
-                // The controller asking for a specific quality sets the
-                // ceiling; the link and thermal caps still apply on top, so it
-                // cannot talk us into pushing HD down a Bluetooth link.
-                is Message.StartPreview -> thermalCap =
-                    StreamQuality(message.width, message.height, message.fps, message.bitrate)
-
-                Message.StopPreview -> {
-                    encoder?.stop(); encoder = null; streaming = false
-                }
-
                 is Message.Capture -> if (message.engine != ENGINE_SHUTTERLINK) {
-                    // Another app takes the photo. The live view stops while it
-                    // holds the camera — unavoidable, and said plainly on the
-                    // controller rather than hidden behind a frozen frame.
                     pairing.send(Message.CaptureStarted)
-                    encoder?.stop()
-                    encoder = null
-                    streaming = false
 
                     val file = File(
                         File(context.cacheDir, "captures").apply { mkdirs() },
@@ -393,7 +314,7 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
                 Message.Status(
                     batteryPercent = batteryPercent(context),
                     thermal = thermal,
-                    streaming = streaming,
+                    ready = ready,
                     shotsTaken = shots,
                 ),
             )
@@ -412,19 +333,19 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
     ) {
         Row(
             modifier = Modifier
-                .background(if (streaming) Ink.AccentWell else Ink.SurfaceDim, CircleShape)
-                .border(1.dp, if (streaming) Ink.Positive else Ink.Line, CircleShape)
+                .background(if (ready) Ink.AccentWell else Ink.SurfaceDim, CircleShape)
+                .border(1.dp, if (ready) Ink.Positive else Ink.Line, CircleShape)
                 .padding(horizontal = 16.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 Modifier.size(8.dp)
-                    .background(if (streaming) Ink.Positive else Ink.Faint, CircleShape),
+                    .background(if (ready) Ink.Positive else Ink.Faint, CircleShape),
             )
             Spacer(Modifier.width(9.dp))
             Text(
-                if (streaming) "Live" else "Not streaming",
-                color = if (streaming) Ink.Positive else Ink.Faint,
+                if (ready) "Ready to shoot" else "Camera not ready",
+                color = if (ready) Ink.Positive else Ink.Faint,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -456,9 +377,9 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
 
         Spacer(Modifier.height(28.dp))
         Row(Modifier.fillMaxWidth()) {
-            Stat("${quality.height}p", "Sending", Modifier.weight(1f))
-            Spacer(Modifier.width(10.dp))
             Stat("$shots", "Shots", Modifier.weight(1f))
+            Spacer(Modifier.width(10.dp))
+            Stat(if (front) "Front" else "Back", "Camera", Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
             Stat("${batteryPercent(context)}%", "Battery", Modifier.weight(1f))
         }

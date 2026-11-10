@@ -46,7 +46,6 @@ data class PairingState(
     val connected: Peer? = null,
     val theirCapabilities: Message.Capabilities? = null,
     val latencyMillis: Long? = null,
-    val video: java.io.InputStream? = null,
     /** -1 while the size is unknown, 100 when done, null when nothing is arriving. */
     val photoProgress: Int? = null,
     val arrivedPhoto: ArrivedPhoto? = null,
@@ -54,7 +53,13 @@ data class PairingState(
     val incompatible: Boolean = false,
     val reconnecting: String? = null,
     val engines: List<CaptureEngine> = emptyList(),
-    /** False until Nearby has moved the link off Bluetooth onto Wi-Fi. */
+    /**
+     * False until Nearby has moved the link off Bluetooth onto Wi-Fi.
+     *
+     * It no longer gates any picture quality — nothing is streamed. It decides
+     * what the controller warns about before a shot, because a photo over
+     * Bluetooth takes tens of seconds and over Wi-Fi takes about one.
+     */
     val linkIsFast: Boolean = false,
 )
 
@@ -88,11 +93,6 @@ class Pairing(
 
     /** Send a control message to the other phone. */
     fun send(message: Message) = transport.send(message)
-
-    /** Camera phone: open the video channel. */
-    fun startVideo() = transport.startVideo()
-
-    fun stopVideo() = transport.stopVideo()
 
     /** Done looking at the photo that came over. */
     fun dismissPhoto() {
@@ -220,7 +220,6 @@ class Pairing(
                         pending = null,
                         theirCapabilities = null,
                         latencyMillis = null,
-                        video = null,
                         peers = it.peers.filterNot { p -> p.id == event.id },
                     )
                 }
@@ -234,8 +233,6 @@ class Pairing(
                 onMessage(event.message)
                 _incoming.tryEmit(event.message)
             }
-
-            is TransportEvent.VideoAvailable -> _state.update { it.copy(video = event.stream) }
 
             is TransportEvent.LinkQuality -> _state.update { it.copy(linkIsFast = event.high) }
 
@@ -356,8 +353,6 @@ class Pairing(
             // `incoming`. Listed rather than lumped into an `else` so that
             // adding a message type makes the compiler ask where it belongs —
             // which has already caught two gaps while building this.
-            is Message.StartPreview,
-            Message.StopPreview,
             is Message.SetZoom,
             is Message.SwitchCamera,
             is Message.Capture,
@@ -374,13 +369,44 @@ class Pairing(
      * Filled in properly in Phase 3, when the camera session is running
      * alongside the transport. Phase 2 only has to prove the round trip.
      */
-    private fun describeThisCamera() = Message.Capabilities(
-        deviceName = myName,
-        hasFrontCamera = true,
-        hasBackCamera = true,
-        minZoom = 1f,
-        maxZoom = 1f,
-    )
+    /**
+     * The camera phone's real capabilities, once the camera has been bound.
+     *
+     * This exists because the obvious thing was wrong. [describeThisCamera]
+     * used to answer every Hello with a hardcoded `minZoom = 1f, maxZoom = 1f`
+     * placeholder, on the assumption that the real figures — which only the
+     * bound camera knows — would arrive afterwards and replace it.
+     *
+     * That assumption held only while binding was slow. Once the preview
+     * encoder was removed the camera bound almost immediately, so the real
+     * Capabilities frequently went out BEFORE the controller's Hello arrived,
+     * and the placeholder answer then overwrote it. The symptom was the zoom
+     * slider silently missing, because `maxZoom > minZoom` was false.
+     */
+    private var realCapabilities: Message.Capabilities? = null
+
+    /**
+     * Camera phone: publish what the bound camera can actually do.
+     *
+     * Goes through here rather than straight to [send] so the answer to a late
+     * Hello is the truth rather than a placeholder.
+     */
+    fun publishCapabilities(capabilities: Message.Capabilities) {
+        realCapabilities = capabilities
+        transport.send(capabilities)
+    }
+
+    private fun describeThisCamera(): Message.Capabilities =
+        realCapabilities ?: Message.Capabilities(
+            deviceName = myName,
+            hasFrontCamera = true,
+            hasBackCamera = true,
+            // Equal, so the controller hides the zoom slider rather than
+            // offering one that does nothing. A control that lies is worse
+            // than a control that is missing for a second.
+            minZoom = 1f,
+            maxZoom = 1f,
+        )
 
     /** Measure the link. The controller does this; the camera just answers. */
     fun ping() = transport.send(Message.Ping(stamp = System.currentTimeMillis()))

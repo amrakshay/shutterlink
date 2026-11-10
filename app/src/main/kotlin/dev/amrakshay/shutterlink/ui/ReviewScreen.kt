@@ -169,7 +169,7 @@ fun ReviewScreen(
             }
 
             Text(
-                "Back to the viewfinder",
+                "Back to the shutter",
                 color = Ink.Muted,
                 fontSize = 14.sp,
                 textAlign = TextAlign.Center,

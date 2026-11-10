@@ -2,8 +2,6 @@ package dev.amrakshay.shutterlink.transport
 
 import dev.amrakshay.shutterlink.protocol.Message
 import kotlinx.coroutines.flow.Flow
-import java.io.InputStream
-import java.io.OutputStream
 
 /** A phone we can see but have not connected to yet. */
 data class Peer(val id: String, val name: String)
@@ -26,21 +24,15 @@ sealed interface TransportEvent {
     /**
      * The link's carrying capacity changed.
      *
-     * Nearby starts a connection on Bluetooth and upgrades to Wi-Fi later —
-     * measured at 35 seconds on the test pair. Streaming HD before that happens
-     * pushes 3 Mbps down a link that cannot carry it, and the viewfinder falls
-     * a second behind and stays there. So this is not a detail: it decides what
-     * quality may be sent.
+     * Nearby starts every connection on Bluetooth and upgrades to Wi-Fi later —
+     * measured at 35 seconds on the test pair. Nothing is streamed any more, so
+     * this no longer gates picture quality; it decides what the controller
+     * tells the user to expect, because a 3 MB photo over Bluetooth takes the
+     * better part of a minute and over Wi-Fi takes a second.
      */
     data class LinkQuality(val high: Boolean) : TransportEvent
     data class Disconnected(val id: String) : TransportEvent
     data class Received(val from: String, val message: Message) : TransportEvent
-
-    /**
-     * The camera phone has opened its video stream. The controller reads frames
-     * off this until it ends, which is also how it learns the stream stopped.
-     */
-    data class VideoAvailable(val stream: InputStream) : TransportEvent
 
     /** A photo is on its way. [percent] is -1 while the size is still unknown. */
     data class PhotoArriving(val payloadId: Long, val percent: Int) : TransportEvent
@@ -92,18 +84,6 @@ interface Transport {
     fun reject(id: String)
 
     fun send(message: Message)
-
-    /**
-     * Camera phone: open the video channel and return the sink to write frames
-     * into, or null if there is nobody connected.
-     *
-     * A separate channel from [send] on purpose. Control messages are small and
-     * must not queue behind a second of video, and the video is a continuous
-     * pipe rather than a series of messages.
-     */
-    fun startVideo(): OutputStream?
-
-    fun stopVideo()
 
     /**
      * Camera phone: send a captured photo. Returns the payload id, which goes in

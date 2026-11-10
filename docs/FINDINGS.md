@@ -23,6 +23,10 @@ opposite ends of the permission regime.
 | 8 | Stream stops when the screen goes off | The system takes the camera when the device locks | **Recovery on wake fixed**; streaming while locked still unsupported |
 | 9 | "Trouble looking for phones: 8002" shown as an error | Reconnect re-calls `discover()`; Nearby answers ALREADY_DISCOVERING | **Fixed** |
 | 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
+| 18 | Wi-Fi Direct never chosen; DISRUPTIVE did not help | The Samsung does not offer it, and Nearby will not upgrade off a LAN it already calls "high quality" |
+| 19 | Zoom slider silently missing | A placeholder Capabilities overwrote the real one once faster binding flipped the ordering |
+| 16 | Live preview removed; shoot-and-review instead | A congested router put the picture 1–2s behind, which no app-side fix can reach |
+| 17 | Remote captures could come back sideways | The rig screen never set `targetRotation`; the preview had been masking it |
 | 11 | Preview lags behind reality | HD pushed down a Bluetooth link before Nearby upgrades to Wi-Fi | **Fixed** |
 | 12 | Gives up reconnecting after ~25s, and stays given-up when the phone returns | Retry budget counted attempts, not time; no rejoin on rediscovery | **Fixed** |
 | 13 | Feed juddery — 2.9 fps on an idle Wi-Fi link | Auto-exposure lengthened exposures; the camera was never asked for a frame rate | **Fixed** — 28.6 fps |
@@ -471,3 +475,152 @@ difference between the app working well outdoors and being written off.
 That advice rests on Wi-Fi Direct being chosen when the radio is on and
 unassociated. It has not been observed once. Until someone tries it in a field,
 it is reasoning, not a result.
+
+
+## 16 · The live preview was removed, and the shutter got better
+
+Every streaming fix in this document worked. The frame rate went from 2.9 to
+28.6 fps, the latency from two seconds and growing to about sixty milliseconds,
+and the feed degraded instead of freezing when the link collapsed. On a quiet
+link the viewfinder was good.
+
+It was removed anyway, because on a busy home router it was not good, and a
+viewfinder that is one to two seconds behind is worse than no viewfinder: you
+frame against a moment that has already passed while believing you are looking
+at the present. Nothing in the app's control could fix that — the congestion
+was in the router, and Nearby chose `WIFI_LAN` rather than a direct link every
+single time it was observed.
+
+### What replaced it
+
+Press the shutter, wait a moment, look at the photo, shoot again if it is
+wrong. Measured on the two test phones:
+
+| | |
+|---|---|
+| Shutter press to the camera acting on it | **19 ms and 165 ms** on two clean runs |
+| Camera phone: message received to `takePicture` | **18 ms** |
+| Capture itself (`MAXIMIZE_QUALITY`) | about 600 ms |
+| A 3 MB photo back over Wi-Fi | about 3 s |
+| Whole loop, tap to photo on screen | about 7 s |
+
+### The measurement that was wrong first
+
+The first readings said 2.8 to 4.4 seconds of shutter lag, and that was an
+artifact, not the app. The tap was timestamped on the Mac and the capture was
+read from the camera phone's logcat — and **that phone's clock runs 2.59
+seconds ahead of the Mac's**. Subtract the skew and the numbers collapse to a
+few hundred milliseconds, which matches the ping latency and the in-app
+instrumentation that was added to settle it.
+
+This is the second time in this project that a cross-device clock has produced
+a confident wrong number — the first produced a latency of minus five seconds,
+which at least announced itself. A plausible wrong number is more dangerous
+than an impossible one. Any figure that spans two devices now gets its skew
+measured before it is believed.
+
+### What it cost and what it bought
+
+Lost: seeing the shot before taking it. Framing is now iterative, and the first
+frame of a new setup is a guess.
+
+Gained: the camera phone holds the camera idle between shots instead of
+encoding H.264 continuously, so it stays cool and keeps its battery; there is
+no quality ladder, no congestion control and no decoder to go wrong; and the
+picture you judge is the actual photo rather than a lossy preview of it.
+
+Deleted with it: `PreviewEncoder`, `VideoDecoder`, `FrameCodec`/`VideoFrame`,
+the Nearby stream payload, the quality ladder and the controller's adaptive
+loop — about 1,100 lines.
+
+## 17 · With no live view, capture rotation stops being cosmetic
+
+The camera phone's activity is locked to portrait, so CameraX tags every
+capture as portrait however the phone is actually being held. The standalone
+camera screen already corrected this with an `OrientationEventListener` feeding
+`imageCapture.targetRotation`; the remote rig screen never did, because the
+live preview carried its own rotation angle and nobody noticed the still was
+relying on a different path.
+
+With the preview gone the returned photo is the only output, so a sideways one
+is not a blemish — it is the entire result being wrong. The listener is now on
+both screens. Confirmed on hardware: the OnePlus lying on its side on a desk
+returned an upright landscape photo.
+
+
+## 18 · Why Wi-Fi Direct was never chosen, and why asking harder did not help
+
+Open since the first two-phone test: Nearby always picked `WIFI_LAN` — both
+phones through the router — and Wi-Fi Direct was never observed. Two causes,
+found by reading what Nearby logs about its own decision.
+
+**The Samsung does not offer Wi-Fi Direct to Nearby.** The negotiated medium
+set is the intersection of what each phone offers:
+
+```
+their supported mediums ([WIFI_LAN, WIFI_DIRECT, WIFI_HOTSPOT, BLE_L2CAP, BLUETOOTH, BLE])
+my    supported mediums ([WIFI_LAN,               WIFI_HOTSPOT, BLUETOOTH, BLE, NFC])
+decided on              ([WIFI_LAN,               WIFI_HOTSPOT, BLUETOOTH, BLE])
+```
+
+The OnePlus offers `WIFI_DIRECT`; the Samsung M04 does not, so it drops out.
+`WIFI_HOTSPOT` survives and is the fast direct path available to this pair.
+
+**Nearby will not upgrade off the LAN, because it already calls the LAN fast:**
+
+```
+BandwidthUpgradeManager skipped retry upgrade [High quality medium WIFI_LAN]
+```
+
+That is the heart of it. Nearby judges a medium by its *type*, not by its
+measured throughput. A congested home router is `WIFI_LAN`, `WIFI_LAN` is a
+high-quality medium, so there is nothing to upgrade to — no matter how slow the
+transfer actually is.
+
+### Asking for a disruptive link
+
+`ConnectionType.DISRUPTIVE` plus `setDisruptiveUpgrade(true)` and
+`setLowPower(false)` were set on both the advertising and the connection
+options. This is the switch that lets Nearby drop the phone's current Wi-Fi
+association and stand up a direct hotspot — what Quick Share does for a large
+file, on this same API.
+
+**It changed nothing while both phones were on the same Wi-Fi network**, for
+the reason above: no upgrade is attempted at all when the current medium is
+already classed as high quality. `WIFI_HOTSPOT` and `WIFI_DIRECT` began
+appearing in the logs where they never had, so the request is being considered
+— it is simply never acted on.
+
+The flags are kept, because the case they exist for is the one that matters
+outdoors: phones on different networks, or on none, where there is no
+"high quality" medium already in hand.
+
+### What is actually left
+
+A 3.2 MB photo took about 13 seconds over a congested `WIFI_LAN` — roughly
+250 KB/s, poor for Wi-Fi and consistent with the router being the bottleneck.
+Nothing in Nearby's own API appears able to override its medium choice while a
+shared network exists. The remaining levers are to send fewer bytes, or to stop
+using Nearby for bulk transfer and open a socket of our own.
+
+## 19 · A placeholder overwrote the real camera capabilities
+
+The zoom slider vanished. `Capabilities` carries the far camera's zoom range,
+and the controller hides the slider when `maxZoom == minZoom`.
+
+Two different places sent `Capabilities`. The camera rig screen sent the real
+figures once the camera was bound; `Pairing.describeThisCamera()` answered the
+controller's `Hello` with a hardcoded `minZoom = 1f, maxZoom = 1f` placeholder,
+on the assumption that the real ones would arrive later and replace it.
+
+That assumption was load-bearing and undocumented, and **removing the preview
+encoder broke it**. Binding used to take long enough that the real figures
+always came second. Without an encoder to build, the camera bound almost
+immediately and often sent the truth *before* the controller's Hello arrived —
+so the placeholder landed last and won.
+
+The fix is for the camera to remember what it published and answer Hello with
+that, falling back to the placeholder only before the camera is bound. Worth
+noting the shape of this bug: nothing failed, no error was logged, and the only
+symptom was a control quietly missing. A deleted feature changed the timing of
+an unrelated one.

@@ -13,7 +13,7 @@ import android.os.IBinder
 import dev.amrakshay.shutterlink.MainActivity
 import dev.amrakshay.shutterlink.R
 
-private const val CHANNEL = "streaming"
+private const val CHANNEL = "camera_in_use"
 private const val NOTIFICATION_ID = 1
 
 /**
@@ -29,7 +29,7 @@ private const val NOTIFICATION_ID = 1
  * quietly holding a live camera should say so, where its owner can see it and
  * stop it in one tap.
  */
-class StreamingService : Service() {
+class CameraHoldService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -88,12 +88,12 @@ class StreamingService : Service() {
 
     companion object {
         fun start(context: Context) {
-            val intent = Intent(context, StreamingService::class.java)
+            val intent = Intent(context, CameraHoldService::class.java)
             context.startForegroundService(intent)
         }
 
         fun stop(context: Context) {
-            context.stopService(Intent(context, StreamingService::class.java))
+            context.stopService(Intent(context, CameraHoldService::class.java))
         }
     }
 }

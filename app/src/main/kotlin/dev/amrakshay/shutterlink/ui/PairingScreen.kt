@@ -68,12 +68,12 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
         }
     }
 
-    // Once connected, the live screens take the whole window. They are drawn
-    // outside the padded Box below on purpose: a viewfinder inset by 24dp and
-    // the system bars is not a viewfinder.
-    // A photo that has arrived takes precedence over the viewfinder: it is the
-    // thing the user just asked for, and deciding whether to retake is the whole
-    // reason it was sent across.
+    // Once connected, the live screens take the whole window, drawn outside the
+    // padded Box below on purpose.
+    // A photo that has arrived takes precedence over everything: it is the thing
+    // the user just asked for, and deciding whether to retake is the whole
+    // reason it was sent across — and, with no live view, the only way to see
+    // what the far camera is actually pointing at.
     val arrived = state.arrivedPhoto
     if (arrived != null && role == Role.CONTROLLER) {
         ReviewScreen(
@@ -86,9 +86,9 @@ fun PairingScreen(role: Role, onBack: () -> Unit, onUseAlone: (() -> Unit)? = nu
 
     if (state.connected != null && !state.incompatible && state.pending == null) {
         if (role == Role.CAMERA) {
-            CameraRigScreen(pairing = pairing, linkIsFast = state.linkIsFast, onEnd = onBack)
+            CameraRigScreen(pairing = pairing, onEnd = onBack)
         } else {
-            RemoteViewfinderScreen(pairing = pairing, state = state, onBack = onBack)
+            RemoteCaptureScreen(pairing = pairing, state = state, onBack = onBack)
         }
         return
     }

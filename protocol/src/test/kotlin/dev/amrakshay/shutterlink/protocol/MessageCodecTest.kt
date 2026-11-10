@@ -123,8 +123,6 @@ class MessageCodecTest {
                 maxZoom = 8f,
             ),
             Message.Ping(7), Message.Pong(7), Message.Bye("done"),
-            Message.StartPreview(1280, 720, 24, 3_000_000),
-            Message.StopPreview,
             Message.SetZoom(0.42f),
             Message.SwitchCamera(front = true),
             Message.Capture(timerSeconds = 3, engine = ENGINE_SHUTTERLINK),
@@ -132,7 +130,7 @@ class MessageCodecTest {
             Message.CaptureStarted,
             Message.CaptureFailed("no storage"),
             Message.PhotoReady(99L, "SHUTTERLINK_x.jpg", 3_600_000L, 4000, 3000),
-            Message.Status(78, "none", streaming = true, shotsTaken = 4),
+            Message.Status(78, "none", ready = true, shotsTaken = 4),
             Message.Engines(
                 listOf(
                     CaptureEngine(ENGINE_SHUTTERLINK, "ShutterLink", handsPhotoBack = true, tested = true),

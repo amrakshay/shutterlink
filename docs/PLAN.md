@@ -1,15 +1,60 @@
 # ShutterLink — Implementation Plan
 
-**Two Android phones. One is the camera, one is the viewfinder + shutter.**
+**Two Android phones. One is the camera, one is the shutter.**
 The Apple Watch Camera Remote concept, rebuilt for Android.
 
 | | |
 |---|---|
-| **Status** | Plan — nothing built yet |
-| **Date** | 2026-11-09 |
+| **Status** | Built and working on two phones |
+| **Date** | 2026-11-09, amended 2026-11-10 |
 | **Author** | Akshay |
 | **Min Android** | 10 (API 29) |
-| **Transport** | BLE discovery + Wi-Fi Direct data (decided) |
+| **Transport** | BLE discovery + Wi-Fi for the photo |
+
+---
+
+## 0. Amendment, 2026-11-10 — the live preview was removed
+
+**Everything below about streaming a live viewfinder was built, made to work,
+and then taken out.** Read this section before the rest, which is kept as the
+record of how the app got here rather than as a description of what it is.
+
+The preview worked: 28.6 fps at 720p, about 60 ms behind reality on a quiet
+link, degrading instead of freezing when the link collapsed. On a congested
+home router it fell one to two seconds behind, and no fix inside the app could
+reach that — Nearby chose `WIFI_LAN` (both phones through the router) every
+time it was observed, and Wi-Fi Direct was never selected once.
+
+A viewfinder that lags is worse than none: you frame against a moment that has
+passed while believing you see the present. So the app is now **shoot, look,
+shoot again** — press the shutter, the full-resolution photo comes back in a
+few seconds, and retake is the framing loop.
+
+What this changed in the design:
+
+| Was | Now |
+|---|---|
+| `StartPreview` / `StopPreview` messages | Gone from the protocol |
+| `PreviewEncoder`, `VideoDecoder`, `FrameCodec`/`VideoFrame` | Deleted |
+| Nearby STREAM payload for video | Gone; control is BYTES, the photo is FILE |
+| Quality ladder, thermal and congestion caps, controller adaptive loop | Gone |
+| `CameraSession.bindForStreaming` | `bindForCapture` — `ImageCapture` only, no `Preview` use case |
+| `StreamingService` | `CameraHoldService` |
+| `Capabilities.rotationDegrees` | Gone — it existed to turn the video |
+| `Status.streaming` | `Status.ready` |
+| Controller's `RemoteViewfinderScreen` | `RemoteCaptureScreen` |
+
+Measured after the change, on the OnePlus 7 and the Samsung M04:
+
+| | |
+|---|---|
+| Shutter press to the camera acting on it | 19 ms and 165 ms |
+| Capture (`MAXIMIZE_QUALITY`) | about 600 ms |
+| 3 MB photo back over Wi-Fi | about 3 s |
+| Whole loop, tap to photo on screen | about 7 s |
+
+See [`FINDINGS.md`](FINDINGS.md) §16 for the reasoning and §17 for the capture
+rotation bug the removal exposed.
 
 ---
 
