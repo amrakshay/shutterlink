@@ -118,15 +118,25 @@ Still worth measuring properly one day: **true glass-to-glass latency**, by
 pointing the camera at a running stopwatch and photographing both screens. The
 figure in the chip is the control round trip, which is not the same thing.
 
-### 2. Recovery after the screen goes off — fix written, untested
+### 2. ~~Recovery after the screen goes off~~ — passes 2026-11-10
 
-`ACTION_SCREEN_ON` / `ACTION_USER_PRESENT` now rebuild the whole pipeline, after
-it was established that the activity never leaves RESUMED and a lifecycle
-observer never fires (FINDINGS §8). **The test of this did not complete** — run
-it first thing:
+```
+before screen off:  3803 f
+after 20s off:      3880 f   (buffered frames draining, then still)
+15s after wake:      139 f   <- counter reset: a new stream was built
+25s after wake:      549 f   <- climbing steadily
+```
 
-connect, press power, wait 20s, press power, unlock, and watch the controller's
-frame counter. It should start climbing again within a few seconds.
+The `ACTION_SCREEN_ON` / `ACTION_USER_PRESENT` receiver fires and rebuilds the
+encoder, binding and video channel; the encoder log shows the restart. The frame
+counter resetting is the tell — it is a fresh decoder session, not the old one
+resuming.
+
+Streaming still **stops** while the screen is off, and that remains unfixed:
+the system takes the camera when the device locks, and the real answer is moving
+the camera session into `StreamingService` behind a `LifecycleService`. What is
+fixed is that waking the phone brings the picture back instead of leaving a dead
+session that looks connected.
 
 ### 3. Reconnect after going out of range
 

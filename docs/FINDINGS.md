@@ -20,7 +20,7 @@ opposite ends of the permission regime.
 | 5 | Top chips stack one letter per line | Row overflow on a 720px screen | **Fixed** |
 | 6 | "That image could not be opened" | Scoped storage blocks Nearby's download path | **Fixed** |
 | 7 | Filename shown as `-4709986883054979248` | Nearby names files after the payload id | **Fixed** |
-| 8 | Stream stops when the screen goes off | The system takes the camera when the device locks | **Fix written, untested** |
+| 8 | Stream stops when the screen goes off | The system takes the camera when the device locks | **Recovery on wake fixed**; streaming while locked still unsupported |
 | 9 | "Trouble looking for phones: 8002" shown as an error | Reconnect re-calls `discover()`; Nearby answers ALREADY_DISCOVERING | **Fixed** |
 | 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
 | 11 | Preview lags behind reality | HD pushed down a Bluetooth link before Nearby upgrades to Wi-Fi | **Fixed** |
