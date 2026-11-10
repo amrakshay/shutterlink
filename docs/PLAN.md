@@ -580,6 +580,7 @@ up to date — CONTRIBUTING.md asks PRs to.
 | 2026-11-09 | Both | **§2 passes.** Live 720p preview from the OnePlus shown on the Samsung, upright and full frame; ~1100 frames with 6 dropped | Passed |
 | 2026-11-09 | Both | **§3 passes.** Camera flip and the self-timer driven from the controller; the far phone rebinds and reports back | Passed |
 | 2026-11-09 | Both | **§4 passes.** Remote shutter fires, the photo lands in the camera phone's gallery full size, transfers (~4.4 MB), opens in the review screen, and reaches the controller's gallery **only** on Save | Passed |
+| 2026-11-10 | Both | **Preview lag fixed and confirmed by eye.** Blocked writes 31+ → 0, link upgrade 35s → 1.3s, first picture 501ms → 155ms. Cause: HD sent over Bluetooth before Nearby upgraded to Wi-Fi (FINDINGS §11) | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: the permission list is computed from the running Android version — on API 29 it asks for Location only, with the reason on screen, and never for the API 31+ Bluetooth permissions | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: Nearby advertising starts — `startAdvertising` succeeds over BLE/Bluetooth/WIFI_LAN with Wi-Fi Direct among the upgrade mediums | Passed |
 | 2026-11-09 | OnePlus 7 | Phase 2: the waiting screen shows the name the other phone should look for | Passed |

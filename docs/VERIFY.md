@@ -105,7 +105,9 @@ foreground.
 
 Picked up on 2026-11-09 and not yet resolved. In the order worth attacking.
 
-### 1. ~~The preview lags~~ — fixed 2026-11-10
+### 1. ~~The preview lags~~ — fixed and confirmed 2026-11-10
+
+Confirmed by eye on the phones, not only by the counters.
 
 Cause was HD being pushed down a Bluetooth link before Nearby upgraded to
 Wi-Fi. The stream now starts at 360p and steps up when the link reports HIGH.
