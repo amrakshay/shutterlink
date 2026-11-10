@@ -17,9 +17,17 @@ private const val TAG = "ShutterLink/Encoder"
 /** What the preview is being sent at. Dropped automatically when the link struggles. */
 data class StreamQuality(val width: Int, val height: Int, val fps: Int, val bitrate: Int) {
     companion object {
-        val HIGH = StreamQuality(1280, 720, 24, 3_000_000)
-        val MEDIUM = StreamQuality(960, 540, 24, 1_600_000)
-        val LOW = StreamQuality(640, 360, 15, 700_000)
+        // Bitrates deliberately lower than a recording would use. This is a
+        // viewfinder: it is watched for a few seconds to judge framing and
+        // then thrown away. Sharpness past "can I see where I am standing"
+        // buys nothing, and every extra megabit is latency when the link is a
+        // shared Wi-Fi network rather than a direct one.
+        //
+        // 3 Mbps at 720p was the original and it repeatedly overran a busy
+        // home router, which no amount of catching up can fix.
+        val HIGH = StreamQuality(1280, 720, 30, 1_800_000)
+        val MEDIUM = StreamQuality(960, 540, 30, 1_000_000)
+        val LOW = StreamQuality(640, 360, 24, 500_000)
 
         /** Best first, so stepping down is just walking the list. */
         val ladder = listOf(HIGH, MEDIUM, LOW)

@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import dev.amrakshay.shutterlink.camera.StreamHealth
+import dev.amrakshay.shutterlink.camera.StreamQuality
 import dev.amrakshay.shutterlink.camera.VideoDecoder
 import dev.amrakshay.shutterlink.protocol.ENGINE_SHUTTERLINK
 import dev.amrakshay.shutterlink.protocol.Message
@@ -134,6 +135,55 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
     }
 
     DisposableEffect(Unit) { onDispose { decoder?.stop() } }
+
+    // The controller drives the quality, because it is the only side that can
+    // see the end-to-end lag. The camera cannot: its writes may not even block
+    // while the picture arrives a second late, and Nearby's own "HIGH" refers
+    // to the medium's capability rather than what it is managing right now.
+    //
+    // Falls fast and climbs slowly. An overloaded link needs relief
+    // immediately; a quiet one does not need to be probed every few seconds,
+    // and each change restarts the encoder, which the viewer sees.
+    var requested by remember { mutableStateOf(StreamQuality.HIGH) }
+    var goodFor by remember { mutableStateOf(0) }
+    LaunchedEffect(state.connected) {
+        if (state.connected == null) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(3000)
+            val lag = health.lagMillis
+            when {
+                lag > 600 -> {
+                    val next = StreamQuality.ladder.firstOrNull { it.height < requested.height }
+                    if (next != null) {
+                        requested = next
+                        goodFor = 0
+                        pairing.send(
+                            Message.StartPreview(next.width, next.height, next.fps, next.bitrate),
+                        )
+                    }
+                }
+
+                lag < 200 -> {
+                    goodFor += 1
+                    // Five clean samples in a row — fifteen seconds — before
+                    // stepping back up. Recovering eagerly just restarts the
+                    // oscillation that got us here.
+                    if (goodFor >= 5) {
+                        val up = StreamQuality.ladder.lastOrNull { it.height > requested.height }
+                        if (up != null) {
+                            requested = up
+                            goodFor = 0
+                            pairing.send(
+                                Message.StartPreview(up.width, up.height, up.fps, up.bitrate),
+                            )
+                        }
+                    }
+                }
+
+                else -> goodFor = 0
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         pairing.incoming.collect { message ->
@@ -279,8 +329,30 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
                             trackColor = Color(0x33FFFFFF),
                         )
                         Spacer(Modifier.height(8.dp))
+                        // What to say depends on whether Wi-Fi could even take
+                        // over. With Wi-Fi switched off the old copy promised
+                        // something that was never going to happen, which is
+                        // worse than saying nothing — measured on the phones:
+                        // Bluetooth only, and it stayed on Bluetooth.
+                        //
+                        // Worth saying out loud because it is not obvious: the
+                        // radio needs to be ON, but it does NOT need a network
+                        // to join. Out in a field with Wi-Fi enabled and
+                        // nothing to connect to, the phones can still find a
+                        // faster path to each other than Bluetooth.
+                        val wifiOn = remember {
+                            runCatching {
+                                (context.getSystemService(android.content.Context.WIFI_SERVICE)
+                                    as android.net.wifi.WifiManager).isWifiEnabled
+                            }.getOrDefault(true)
+                        }
                         Text(
-                            "Still on Bluetooth. It sharpens when Wi-Fi takes over.",
+                            if (wifiOn) {
+                                "Still on Bluetooth. It sharpens when Wi-Fi takes over."
+                            } else {
+                                "On Bluetooth. Switch Wi-Fi on — it needs no network — " +
+                                    "for a sharper picture."
+                            },
                             color = Ink.Muted,
                             fontSize = 12.sp,
                         )
@@ -311,6 +383,7 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
                 Chip(state.connected?.name ?: "—", dot = true)
                 state.latencyMillis?.let { Chip("$it ms") }
                 Chip("${health.framesShown} f")
+                if (health.lagMillis > 150) Chip("${health.lagMillis}ms behind")
                 if (health.framesDropped > 0) Chip("${health.framesDropped} dropped")
             }
         }

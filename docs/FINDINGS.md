@@ -27,6 +27,7 @@ opposite ends of the permission regime.
 | 12 | Gives up reconnecting after ~25s, and stays given-up when the phone returns | Retry budget counted attempts, not time; no rejoin on rediscovery | **Fixed** |
 | 13 | Feed juddery — 2.9 fps on an idle Wi-Fi link | Auto-exposure lengthened exposures; the camera was never asked for a frame rate | **Fixed** — 28.6 fps |
 | 14 | Picture ~2s behind reality, and growing | Frame reader was unbuffered; byte-at-a-time resync could not drain the stream | **Fixed** — lag now ±60ms |
+| 15 | Which link gets used, and what it costs | Nearby picks the medium; the router path is the worst of them | **Measured** |
 
 ---
 
@@ -420,3 +421,53 @@ Three diagnoses were wrong before this one, and the third was wrong *after* a
 real measurement — the backlog probe was accurate and the inference drawn from
 it was not. What settled it was measuring the quantity actually complained
 about, rather than quantities nearby.
+
+## 15 · Bluetooth at 360p beats the home router at 720p
+
+The app's main scenario — two phones in a park, no network — had never been
+tested. It was worth testing, and it overturned an assumption.
+
+With **Wi-Fi switched off on both phones**:
+
+```
+medium:          ENCRYPTED_BLUETOOTH   (no Wi-Fi Direct at all)
+bandwidth:       MEDIUM -> the app held at 640x360
+latency:         27, 87, 28, 43, 51, 76 ms
+blocked writes:  0
+```
+
+Steadier and far lower-latency than the same app over a busy home Wi-Fi at
+720p, which had been spiking past a second. The picture is softer; it is
+current and smooth, which is what a viewfinder is for.
+
+### What each link actually gives you
+
+| Link | How it is reached | Measured |
+|---|---|---|
+| `ENCRYPTED_WIFI_LAN` | both phones on the same Wi-Fi network | 720p, but latency spikes past 1s on a busy router |
+| `ENCRYPTED_BLUETOOTH` | Wi-Fi switched off | 360p, latency 27-87ms, rock steady |
+| `WIFI_DIRECT` | **not observed yet** | untested |
+
+The ordering is the surprise. Sharing a router with a household is worse than
+having Bluetooth to yourself, and the app cannot choose — Nearby picks, and it
+prefers the LAN when both phones are on one.
+
+Wi-Fi Direct was never selected in any test. With Wi-Fi off it is unavailable;
+with Wi-Fi on and both phones associated, Nearby took the LAN. The untested
+case is **Wi-Fi radio on with no network joined**, which is the real outdoor
+condition and could not be simulated here: neither phone offers a way to
+disconnect from a network without forgetting it.
+
+### What this changed
+
+The "picture is rough for a moment" banner promised that it would "sharpen when
+Wi-Fi takes over". With Wi-Fi off that is a promise the app cannot keep. It now
+says so, and says the useful thing instead: the radio has to be **on**, but it
+does **not** need a network to join — which is not obvious, and is the
+difference between the app working well outdoors and being written off.
+
+### Still unverified
+
+That advice rests on Wi-Fi Direct being chosen when the radio is on and
+unassociated. It has not been observed once. Until someone tries it in a field,
+it is reasoning, not a result.

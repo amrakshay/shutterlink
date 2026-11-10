@@ -18,6 +18,12 @@ data class StreamHealth(
     val framesShown: Long = 0,
     val framesDropped: Long = 0,
     val lastFrameAtMillis: Long = 0,
+    /**
+     * Smoothed end-to-end lag. Smoothed because a single frame's reading is
+     * noisy and quality should not be yanked around by one late packet; the
+     * trend is what matters.
+     */
+    val lagMillis: Long = 0,
 )
 
 /**
@@ -99,8 +105,16 @@ class VideoDecoder(
                     // the error instead of cancelling it and produced a lag of
                     // minus five seconds — which is at least an impossible
                     // number rather than a plausible wrong one.
-                    lastLagMillis =
+                    val sample =
                         System.currentTimeMillis() - (frame.sentAtMillis - clockOffsetMillis())
+                    // Rises quickly, falls slowly: being late matters more than
+                    // briefly being on time, and quality should drop fast and
+                    // recover cautiously.
+                    lastLagMillis = if (sample > lastLagMillis) {
+                        (lastLagMillis * 3 + sample * 7) / 10
+                    } else {
+                        (lastLagMillis * 8 + sample * 2) / 10
+                    }
                 }
 
                 if (frame.config) {
@@ -229,6 +243,7 @@ class VideoDecoder(
                     framesShown = shown.incrementAndGet(),
                     framesDropped = dropped.get(),
                     lastFrameAtMillis = System.currentTimeMillis(),
+                    lagMillis = lastLagMillis,
                 ),
             )
         }
