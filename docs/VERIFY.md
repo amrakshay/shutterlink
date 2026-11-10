@@ -168,29 +168,23 @@ Worth doing once for real.
 
 Never run. Watch for thermal step-downs and battery drain on the camera phone.
 
-## 6 — Phases 2.5 and 5.5: other camera apps
+## 6 — Phases 2.5 and 5.5: other camera apps  ⚠️ mostly passes 2026-11-10
 
-**This is the least certain part of the project.** Three things are unknown:
-whether each phone will act as a Bluetooth HID device at all, whether a given
-camera app honours the key, and whether 2.5 seconds is long enough for the
-chosen app to have taken the camera before the key is sent.
-
-That last one is a fixed delay, which is the weakest part of this design. §11 of
-the plan calls for detecting readiness with `PACKAGE_USAGE_STATS` instead; that
-was not built, because it adds a permission for something that cannot be tested
-without two phones. **If the shutter fires too early, this delay is the first
-thing to look at** — it is one constant in `RemoteViewfinderScreen`.
-
-| Check | What good looks like |
+| Check | Result |
 |---|---|
-| HID registers | `ShutterLink/HID` logs `registered=true` |
-| Classic Bluetooth pairing | The two phones are paired in Settings, not just connected by ShutterLink |
-| Engine picker | Lists the camera apps actually installed on the far phone |
-| OnePlus Camera | Fires; photo returns; **exactly one** copy in the gallery |
-| PicsArt | Unknown. If the shutter does not fire, try the other keys in settings before assuming it is broken |
+| HID registers | **Passes** — `HID app registered=true` on the Samsung (Android 14). This was the single most uncertain thing in the project |
+| Engine picker lists the far phone's camera apps | **Passes** — found `com.oneplus.camera`, shown as "Camera" with "Its own processing — live view pauses" |
+| Untested apps flagged | **Passes** — no badge on the OnePlus camera, which is in the known-good list |
+| Warns before it can fail | **Passes** — selecting another app with no Bluetooth bond says "Pair the two phones in Bluetooth settings first" |
+| Launches the chosen app on the far phone | **Passes** — `com.oneplus.camera/.OPCameraServiceActivity` came to the front |
+| Fires its shutter | **Blocked** — needs the two phones bonded in Bluetooth settings. Failed honestly: "Could not reach the other phone's shutter" |
+| Exactly one gallery copy | Not reached |
+| PicsArt | Not installed on the test phone; still unknown |
 
-**The duplicate check matters most here.** Take one shot with each app and count
-the gallery entries. Two is a bug; zero is a worse one.
+**The one remaining step needs a human**: the two phones must be paired with
+each other in Android's Bluetooth settings, which no amount of adb can do
+safely. HID runs over classic Bluetooth and a Nearby connection is not the same
+thing.
 
 ## 7 — Before any release
 
