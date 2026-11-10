@@ -23,6 +23,7 @@ opposite ends of the permission regime.
 | 8 | Stream stops when the screen goes off | The system takes the camera when the device locks | **Recovery on wake fixed**; streaming while locked still unsupported |
 | 9 | "Trouble looking for phones: 8002" shown as an error | Reconnect re-calls `discover()`; Nearby answers ALREADY_DISCOVERING | **Fixed** |
 | 10 | Controller shows the picture rotated | Orientation sent before CameraX had reported it | **Fixed** |
+| 20 | The whole app reduced to a Bluetooth keystroke | Nothing needed on the camera phone; 13 permissions down to 4; works with no network |
 | 18 | Wi-Fi Direct never chosen; DISRUPTIVE did not help | The Samsung does not offer it, and Nearby will not upgrade off a LAN it already calls "high quality" |
 | 19 | Zoom slider silently missing | A placeholder Capabilities overwrote the real one once faster binding flipped the ordering |
 | 16 | Live preview removed; shoot-and-review instead | A congested router put the picture 1–2s behind, which no app-side fix can reach |
@@ -624,3 +625,63 @@ that, falling back to the placeholder only before the camera is bound. Worth
 noting the shape of this bug: nothing failed, no error was logged, and the only
 symptom was a control quietly missing. A deleted feature changed the timing of
 an unrelated one.
+
+
+## 20 · The app that was left when everything that could fail was removed
+
+ShutterLink is now a Bluetooth keyboard with one key. Nothing is installed on
+the camera phone at all.
+
+The path here was four deletions, each forced by a measurement rather than a
+preference:
+
+1. **The live viewfinder** (FINDINGS 16). Worked at 28.6 fps and 60 ms on a
+   quiet link; one to two seconds behind on a congested router, which no
+   app-side fix could reach.
+2. **Our own camera.** Once the preview was gone, operating CameraX bought
+   nothing a third-party camera app did not do better, and actively prevented
+   that app from opening the camera.
+3. **The photo transfer.** 3 MB over a congested LAN took 13 seconds, and over
+   Bluetooth outdoors it would be far worse. Walking over to look at the other
+   phone costs nothing and always works.
+4. **Nearby Connections itself.** With no photo to carry and no preview to
+   stream, the only thing left to send was a keystroke — and a keystroke does
+   not need a data link, a discovery protocol, Play Services, or a pairing
+   handshake of our own. It needs a Bluetooth bond, which the platform already
+   knows how to make.
+
+### What that removed
+
+| | Before | Now |
+|---|---|---|
+| Permissions | 13 | 4, all Bluetooth |
+| Camera, location, storage, Wi-Fi permissions | all held | none |
+| Google Play Services | required | not used |
+| App needed on the camera phone | yes | **no** |
+| Works with no network | poorly | yes, by construction |
+
+### The thing worth remembering
+
+Every deleted piece worked. The preview really did run at 28.6 fps; the photo
+transfer really did deliver the file; the capability handshake really did carry
+the zoom range. Each was correct and each was load-bearing for a design that
+could not survive a busy router.
+
+The failure was never in the code. It was in choosing a design whose critical
+path ran over a medium we did not control, and then defending it with
+increasingly clever machinery — a quality ladder, congestion control, clock
+alignment, frame shedding — all of which were good engineering aimed at the
+wrong problem. The question that eventually fixed it was not "how do we make
+this faster" but "what is the smallest thing that does the job", and the answer
+had been sitting in the design all along as a secondary feature: a selfie-stick
+keystroke.
+
+### Measured, on the two test phones
+
+| | |
+|---|---|
+| Pairing | Found and bonded from the OnePlus's own Bluetooth settings, first try |
+| HID host attaches | `connection state=2, connected=true` |
+| Tap to photo on disk | 1.3 s, 2.4 s, 1.3 s over three shots |
+| Keys the OnePlus stock camera honours | Volume up, volume down, camera, enter, D-pad centre |
+| Keys it ignores | Headset hook, focus |

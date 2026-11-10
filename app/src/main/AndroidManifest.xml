@@ -1,20 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-      Permissions are declared as each phase needs them rather than all at once,
-      so that what the app asks for stays explainable. Phase 1 needs the camera
-      and nothing else; the Bluetooth, Wi-Fi and location entries arrive with the
-      transport work in Phase 2. See docs/PLAN.md.
-    -->
-    <uses-permission android:name="android.permission.CAMERA" />
+      The whole permission list.
 
-    <!--
-      Finding the other phone. Nearby Connections uses BLE to discover and then
-      upgrades to Wi-Fi Direct for bandwidth, so both stacks appear here.
-      Every entry is justified in SECURITY.md, and CI fails the build if one is
-      added here without a line there.
+      ShutterLink is a Bluetooth keyboard and nothing else. It does not open a
+      camera, read your photos, look at your location or touch the network —
+      earlier versions of this app did several of those, and every one of them
+      was a consequence of trying to stream a viewfinder between two phones.
+
+      BLUETOOTH_ADVERTISE is what lets the other phone find this one to pair
+      with. BLUETOOTH_CONNECT is the keystroke itself. There is deliberately no
+      BLUETOOTH_SCAN: this app is the thing being found, not the thing looking.
     -->
     <uses-permission
         android:name="android.permission.BLUETOOTH"
@@ -22,59 +19,10 @@
     <uses-permission
         android:name="android.permission.BLUETOOTH_ADMIN"
         android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
-    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
-
-    <!--
-      Both location permissions, on every version, with no maxSdkVersion.
-      This is not what the platform requires — a neverForLocation BLE scan needs
-      no location at all on Android 12+ — it is what Nearby Connections requires.
-      Its P2P discovery refuses to start without them and says so:
-        8034: MISSING_PERMISSION_ACCESS_COARSE_LOCATION
-        8036: MISSING_PERMISSION_ACCESS_FINE_LOCATION
-      Both observed on a Samsung running Android 14 with BLUETOOTH_SCAN and
-      NEARBY_WIFI_DEVICES already granted. Capping these at API 32, which the
-      platform documentation suggests, simply stops the app working on 13+.
-      This is the clearest cost of the Nearby dependency — see backlog T-7.
-    -->
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission
-        android:name="android.permission.NEARBY_WIFI_DEVICES"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="33" />
-
-
-    <!--
-      Keeping the camera alive with the screen off. Required rather than
-      convenient: Android stops the camera within seconds otherwise, and this
-      phone is meant to sit across the room untouched.
-    -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-
-    <!--
-      Package visibility. From API 30 an app cannot see what else is installed
-      unless it says what it is looking for. This is the narrowest possible
-      declaration: camera apps, and nothing else. Without it the capture-engine
-      picker is empty on modern Android and the cause is invisible.
-    -->
-    <queries>
-        <intent>
-            <action android:name="android.media.action.IMAGE_CAPTURE" />
-        </intent>
-        <intent>
-            <action android:name="android.media.action.STILL_IMAGE_CAMERA" />
-        </intent>
-    </queries>
-
-    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
-    <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
-    <uses-feature android:name="android.hardware.wifi.direct" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="true" />
 
     <application
         android:allowBackup="false"
@@ -94,24 +42,5 @@
             </intent-filter>
         </activity>
 
-        <!--
-          Lets another camera app write into our captures folder when we hand a
-          shot off to it. grantUriPermissions with exported=false means only the
-          app we explicitly grant can touch it, for as long as the intent lives.
-        -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.captures"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-
-        <service
-            android:name=".camera.CameraHoldService"
-            android:exported="false"
-            android:foregroundServiceType="camera" />
     </application>
 </manifest>

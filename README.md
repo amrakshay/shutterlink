@@ -1,86 +1,57 @@
 # ShutterLink
 
-**Two Android phones. One becomes the camera, the other becomes the shutter.**
+**A Bluetooth shutter button for the phone across the room.**
 
-Prop one phone up across the room, press the shutter on the phone in your hand, and the photo
-comes back to you a moment later at full resolution — look at it, and shoot again if the framing
-is off.
+Install it on the phone in your hand. Pair your other phone to it once, from
+that phone's own Bluetooth settings, exactly as you would pair a selfie remote.
+Then open any camera app over there, prop the phone up, and press the button.
 
-It is the Apple Watch Camera Remote, for Android, without the watch — and without the live
-viewfinder, for a reason given below.
+**Nothing is installed on the camera phone.** It does not need ShutterLink, an
+account, a network, or anything else — to it, your phone is simply a Bluetooth
+keyboard, and the button sends the keystroke its camera app already treats as a
+shutter.
 
-> **Status: working on two phones, not yet released.** Pairing, the shutter, zoom, flip, the
-> timer, the photo coming back, review and retake, reconnection after a drop, and discovery of the
-> far phone's other camera apps have all been run on hardware. Firing another camera app's shutter
-> over Bluetooth HID is the one feature still unproven; it needs the two phones bonded in Bluetooth
-> settings.
->
-> [`docs/VERIFY.md`](docs/VERIFY.md) is the ordered list of what to check and
-> [`docs/PLAN.md`](docs/PLAN.md) records what has actually been measured on hardware versus what is
-> assumed.
+## Why it is this small
 
-## What it is
+It did not start this way. Earlier versions streamed a live 720p viewfinder
+from the far phone over Wi-Fi, sent the photo back for review, and ran a pairing
+protocol of their own on top of Google's Nearby Connections. All of it worked,
+and none of it survived contact with a real network: on a congested home router
+the viewfinder ran one to two seconds behind reality, and a viewfinder that lags
+is worse than none, because you frame against a moment that has already passed.
 
-Every phone camera has the same problem: to be in the photo, you have to be away from the phone,
-and the moment you are away from the phone you cannot see what it sees. Timers are guesswork.
-Cheap Bluetooth remotes fire the shutter but show you nothing.
+Every attempt to fix that added machinery. What was left when the machinery came
+out is the part that always worked, and the part that works in a field with no
+network at all. [`docs/FINDINGS.md`](docs/FINDINGS.md) is the record of that,
+including the measurements that justified each deletion.
 
-ShutterLink puts the shutter in your hand and the photo back in front of you:
+What you give up: no live view and no photo coming back. You walk over and look
+at the other phone.
 
-- **A real shutter** for a phone across the room — about 20–170 ms from your tap to the capture.
-- **Real control** — zoom, front/back, self-timer — from the phone you are holding.
-- **The photo comes back** at full resolution in a few seconds, so you can judge it and shoot
-  again. Retake is the framing loop.
-- **Nothing is saved to your gallery until you say so.** The photo sits inside the app on the
-  controller until you tap Save. The camera phone always keeps its own original.
-- **It can also fire other camera apps.** If you want your phone's own camera app — for its night
-  mode or its colours — ShutterLink can trigger it the way a Bluetooth selfie remote does.
+## What it does
 
-Nothing goes to the internet.
+- **Fires the shutter** on whatever camera app is open on the other phone.
+- **Self-timer**, 3 or 10 seconds, counted down on the phone in your hand.
+- **Picks the key it sends.** Volume up by default. Not every camera app honours
+  the same one, so it is a setting rather than an assumption. Measured on the
+  OnePlus stock camera: volume up, volume down, camera, enter and D-pad centre
+  all take a photo; headset hook and focus do not.
 
-## Why there is no live viewfinder
+## What it needs
 
-There was one, and it was removed.
+- The phone in your hand: **Android 10+**, and it must be able to act as a
+  Bluetooth HID device. Most can; the app says so plainly if yours cannot.
+- The camera phone: **anything with Bluetooth and a camera app.** No Android
+  version requirement, because nothing of ours runs on it.
+- **No Wi-Fi, no mobile data, no network of any kind.** This is the whole point
+  of the design and it works anywhere the two phones are in Bluetooth range.
 
-Streaming 720p H.264 from the far phone worked, and on a quiet link it was good: about 60 ms
-behind reality at 28 fps. On a busy home network it was not. Nearby Connections chose `WIFI_LAN` —
-both phones talking through the router rather than directly to each other — and when that router
-was congested the picture fell one to two seconds behind and stayed there. A viewfinder that lags
-is worse than no viewfinder, because you frame against something that has already happened while
-believing you are looking at now.
+## Permissions
 
-Shoot-and-look is slower, and it is honest. The photo you judge is the photo you took. It also
-costs the camera phone far less: it holds the camera idle between shots instead of encoding video
-continuously, so it stays cool and keeps its battery.
-
-The streaming work is not lost — [`docs/FINDINGS.md`](docs/FINDINGS.md) records what it taught us,
-and the git history has it.
-
-## How it talks
-
-Bluetooth LE finds the other phone and carries the commands, which are small and fast on any
-medium. The photo is several megabytes, so it benefits from Wi-Fi: about a second there against
-the better part of a minute over Bluetooth. The controller says which one it is on while a photo
-is coming across, so a slow transfer never looks like a hang.
-
-**Which Wi-Fi, exactly, is not up to us.** Nearby Connections picks the medium, and in testing it
-chose `WIFI_LAN` — the two phones talking over the local network through the router — rather than a
-direct phone-to-phone Wi-Fi Direct link, which has never been observed in any test here.
-
-**With no network at all** — outdoors, nothing to join — it falls back to Bluetooth and still
-works. Shutter, zoom, flip and timer are unaffected; only the photo transfer is slower. Leaving
-the Wi-Fi radio switched on helps even with no network to join.
-
-Nothing leaves the local network in either case. There is no account, no server and no cloud, and
-the app holds no `INTERNET` permission at all — CI fails the build if one appears.
-
-## Requirements
-
-- Two phones running **Android 10 (API 29)** or newer.
-- Both need Bluetooth LE. Wi-Fi makes the photo transfer fast but is not required — with no
-  network at all the pair falls back to Bluetooth and still works.
-- Google Play Services, for the connection layer. See [`docs/PLAN.md`](docs/PLAN.md) §3 — removing
-  that dependency is a planned item, not a permanent requirement.
+Four, all Bluetooth: `BLUETOOTH_ADVERTISE` and `BLUETOOTH_CONNECT`, plus
+`BLUETOOTH` and `BLUETOOTH_ADMIN` on Android 11 and below. No camera, no
+location, no storage, no internet. CI fails the build if an `INTERNET`
+permission ever appears. See [`SECURITY.md`](SECURITY.md).
 
 ## Building
 
@@ -91,7 +62,6 @@ No Android Studio required — the Gradle wrapper is checked in.
 sdkmanager "platform-tools" "platforms;android-37.2" "build-tools;37.0.0"
 echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-./gradlew :protocol:test        # no device, no emulator, a few seconds
 ./gradlew :app:assembleDebug
 ```
 
@@ -99,20 +69,19 @@ echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
 | | |
 |---|---|
-| [`docs/PLAN.md`](docs/PLAN.md) | The whole design: decisions, phases, v2 backlog, risks, and what has actually been measured on hardware. |
-| [`docs/VERIFY.md`](docs/VERIFY.md) | What has been checked on two phones and what has not, in the order to check it. |
-| [`docs/FINDINGS.md`](docs/FINDINGS.md) | What the hardware actually taught us, including why the live preview was removed. |
-| [`design/`](design/) | The UI mocks the app is built against, and the rules behind them. |
+| [`docs/FINDINGS.md`](docs/FINDINGS.md) | What the hardware taught us, including why nearly all of this app was deleted. |
+| [`docs/VERIFY.md`](docs/VERIFY.md) | What has been checked on real phones, and what has not. |
+| [`docs/PLAN.md`](docs/PLAN.md) | The original design. Kept as history; it describes an app that no longer exists. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Scope, house style, how to test, how releases work. |
-| [`SECURITY.md`](SECURITY.md) | What the pairing does and does not protect against. |
+| [`SECURITY.md`](SECURITY.md) | The permission list and what pairing does and does not protect. |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, version by version. |
 
 ## What it deliberately does not do
 
-- **No cloud, no account, no internet.** Two phones, one room.
-- **It is not a camera app you would use day to day.** It exists for the shot you cannot take with
-  the phone in your hand.
-- **It does not manage the other phone.** It is a camera remote, not a remote desktop.
+- **No live preview and no photo transfer.** Both were built and removed. See
+  FINDINGS 16.
+- **No cloud, no account, no internet.** Two phones and a Bluetooth bond.
+- **It does not manage the other phone.** It is a button, not a remote desktop.
 
 ## Licence
 

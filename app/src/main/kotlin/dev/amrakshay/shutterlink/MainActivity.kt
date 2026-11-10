@@ -1,115 +1,131 @@
 package dev.amrakshay.shutterlink
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import dev.amrakshay.shutterlink.data.RoleStore
-import dev.amrakshay.shutterlink.protocol.Role
-import dev.amrakshay.shutterlink.ui.CameraPermission
-import dev.amrakshay.shutterlink.ui.CameraScreen
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import dev.amrakshay.shutterlink.ui.Ink
-import dev.amrakshay.shutterlink.ui.KeepScreenOn
-import dev.amrakshay.shutterlink.ui.NearbyPermissionGate
-import dev.amrakshay.shutterlink.ui.PairingScreen
-import dev.amrakshay.shutterlink.ui.RolePickerScreen
+import dev.amrakshay.shutterlink.ui.RemoteScreen
 import dev.amrakshay.shutterlink.ui.ShutterLinkTheme
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        setContent {
-            ShutterLinkTheme {
-                App()
-            }
-        }
+        setContent { ShutterLinkTheme { App() } }
     }
 }
 
 /**
- * Three screens and no navigation library.
+ * Everything the app needs permission for, which is now only Bluetooth.
  *
- * The app has one branch — pick a role, then do that role — so a graph would be
- * more machinery than the thing it describes. If Phase 5 brings a review stack
- * that needs real back behaviour, swap it then.
+ * Worth saying plainly because earlier versions of this app asked for a great
+ * deal more: there is no location permission, no storage permission, no camera
+ * permission and no internet permission. Those were all consequences of trying
+ * to stream a viewfinder and send photos back over a local network. A keyboard
+ * needs none of it.
  */
+private fun bluetoothPermissions(): List<String> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        listOf(
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_ADVERTISE,
+        )
+    } else {
+        // Pre-12 these are install-time permissions, so nothing to ask for.
+        emptyList()
+    }
+
 @Composable
 private fun App() {
     val context = LocalContext.current
-    val store = remember { RoleStore(context) }
-    val scope = rememberCoroutineScope()
-
-    // null while the remembered role is still being read, so the picker does not
-    // flash up for someone who already chose one.
-    var role by remember { mutableStateOf<Role?>(null) }
-    var decided by remember { mutableStateOf(false) }
-
-    // Phase 1's standalone camera, still reachable from the waiting screen.
-    var alone by remember { mutableStateOf(false) }
-
-    LaunchedEffect(Unit) {
-        role = store.role.first()
-        decided = true
+    var granted by remember {
+        mutableStateOf(
+            bluetoothPermissions().all {
+                ContextCompat.checkSelfPermission(context, it) ==
+                    PackageManager.PERMISSION_GRANTED
+            },
+        )
     }
 
-    // Held for the whole app, not per screen. Every screen here is either
-    // pointing a camera at something or watching one, and in both cases nobody
-    // is touching the phone — that is the entire point of it. A screen that
-    // locks mid-session drops the camera with it.
-    KeepScreenOn()
+    val ask = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { result -> granted = result.values.all { it } }
 
-    if (!decided) {
-        Box(Modifier.fillMaxSize().background(Ink.Ground))
+    if (granted) {
+        RemoteScreen()
         return
     }
 
-    fun leave() {
-        role = null
-        // Backing out is an explicit "not this role", so stop remembering it —
-        // otherwise the next launch drops straight back in and the picker
-        // becomes unreachable.
-        scope.launch { store.clear() }
-    }
-
-    when (role) {
-        null -> RolePickerScreen { picked, remember ->
-            role = picked
-            if (remember) scope.launch { store.remember(picked) }
-        }
-
-        // The camera still needs its own camera permission before the preview,
-        // but pairing comes first: there is nothing to point it at otherwise.
-        Role.CAMERA -> NearbyPermissionGate {
-            CameraPermission {
-                if (alone) {
-                    CameraScreen(onBack = { alone = false })
-                } else {
-                    PairingScreen(
-                        role = Role.CAMERA,
-                        onBack = ::leave,
-                        onUseAlone = { alone = true },
-                    )
-                }
-            }
-        }
-
-        Role.CONTROLLER -> NearbyPermissionGate {
-            PairingScreen(Role.CONTROLLER, onBack = ::leave)
-        }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Ink.Ground)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .padding(28.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement_Center,
+    ) {
+        Text(
+            "ShutterLink needs Bluetooth",
+            color = Ink.Text,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "To act as a Bluetooth keyboard for your other phone's camera. " +
+                "That is the only thing this app asks for — no location, no " +
+                "photos, no internet.",
+            color = Ink.Muted,
+            fontSize = 14.sp,
+            lineHeight = 21.sp,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(24.dp))
+        Text(
+            "Allow Bluetooth",
+            color = Ink.AccentInk,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Ink.Accent, RoundedCornerShape(15.dp))
+                .clickable { ask.launch(bluetoothPermissions().toTypedArray()) }
+                .padding(vertical = 15.dp),
+        )
     }
 }
+
+private val Arrangement_Center = androidx.compose.foundation.layout.Arrangement.Center

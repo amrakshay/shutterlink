@@ -5,7 +5,9 @@ thing to read first is what it is not trying to be.
 
 ## The scope, so you do not waste your time
 
-This app **puts a camera's viewfinder and shutter on a second phone.** That is the whole job.
+This app **is a Bluetooth shutter button for a camera app on a second phone.** That is the whole
+job. It had a larger one — a live viewfinder and a photo transfer — and both were removed after
+measurement; see `docs/FINDINGS.md` 16 and 20 before proposing their return.
 
 Out of scope, and likely to be declined however well built:
 
@@ -30,57 +32,27 @@ No Android Studio required — the Gradle wrapper is checked in.
 sdkmanager "platform-tools" "platforms;android-37.2" "build-tools;37.0.0"
 echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
 
-./gradlew :protocol:test        # no device, no emulator, a few seconds
 ./gradlew :app:assembleDebug
 ```
 
-### The protocol module has no Android dependency, on purpose
+### Why there is no network code at all
 
-`protocol/` holds everything the two phones say to each other, as a plain JVM module. That is what
-lets the whole message layer be tested on a desktop in seconds, instead of needing two phones and a
-pair of hands every time a field changes.
+There was: Nearby Connections, for discovery and for carrying video and photos. It is gone. The
+shutter is a Bluetooth HID keystroke, which needs no data link, no Play Services and no network,
+and therefore works in a field. Anything that reintroduces a network dependency has to justify
+itself against that — `docs/FINDINGS.md` 16, 18 and 20 are the measurements that got us here.
 
-**Please keep it that way.** CI fails the build if an `android.*` import appears there. Two phones
-are already the slowest possible test loop; do not make the protocol part of it.
+### Measure on two phones, and never across their clocks
 
-### Why Nearby Connections rather than raw Wi-Fi Direct
-
-`WifiP2pManager` behaves differently on every OEM skin, and we need the same two things every
-phone pair needs: find each other over BLE, then move the video onto Wi-Fi. Nearby Connections
-does exactly that and is far better tested across devices than anything we would write.
-
-It sits behind a `Transport` interface so it can be replaced — removing the Google Play Services
-dependency is backlog item **T-7**, not a rewrite. If you add transport code, add it behind that
-interface, not next to it.
-
-### Measure before optimising the preview
-
-The preview pipeline is the one place where it is easy to make something that *looks* right and
-is unusable. The numbers that matter are end-to-end latency and dropped frames, and the app has a
-debug overlay that shows both. A change to the encoder, the framing, or the bitrate policy wants
-a before-and-after from that overlay in the PR, not an argument.
-
-## House style
-
-- Comments explain **why**, especially where the code looks wrong but is not. Camera, codec and
-  transport code accumulates these quickly — a frame dropped on purpose, a surface released in an
-  order that looks arbitrary. Write the reason down the first time, not the second.
-- British spelling in prose, American in code identifiers where the platform uses it.
-- No new dependency without a reason that a paragraph can justify.
-
-## Tests
-
-```bash
-./gradlew :protocol:test
-```
-
-New protocol behaviour wants a test. Message framing and version negotiation are the two places
-where a mistake produces a silent failure rather than an error, so they earn the most.
+Two separate confident wrong numbers in this project came from comparing a timestamp taken on one
+device with one taken on another. A shutter lag of "2.9 seconds" was really 165 ms plus a 2.59 s
+clock skew between a phone and the Mac reading its logcat. Timestamp both ends on the same clock,
+or measure the skew first and subtract it.
 
 ### Test on two real phones
 
 This matters more here than in most projects. The things that break are **timing, permissions and
-OEM behaviour**: a preview that stalls when the screen dims, a Wi-Fi Direct group that forms on one
+OEM behaviour**: a phone that will not act as an HID device, a camera app that ignores the key
 phone brand and not another, a permission that is optional on Android 10 and mandatory on 14. None
 of that is reachable from a unit test, and emulators cannot do Wi-Fi Direct, BLE or a real camera
 at all.
@@ -92,7 +64,7 @@ not. If you change something in that list, please update it.
 
 - Say what is different for someone using the app, not only what changed in the code.
 - Say **which two phones you tested on**, and their Android versions. "OnePlus 7 (Android 10) to
-  Pixel 8 (Android 15), preview held for ten minutes, twelve shots" is worth more than a green CI
+  Pixel 8 (Android 15), paired and fired twelve shots" is worth more than a green CI
   run.
 - Update `docs/PLAN.md` and `CHANGELOG.md` if behaviour changed.
 

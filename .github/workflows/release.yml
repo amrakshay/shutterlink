@@ -36,8 +36,6 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-37.2 build-tools;37.0.0'
 
-      - name: Unit tests
-        run: ./gradlew :protocol:test --console=plain
 
       - name: Restore the release signing key
         env:

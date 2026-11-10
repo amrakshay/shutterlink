@@ -73,22 +73,11 @@ android {
 }
 
 dependencies {
-    implementation(project(":protocol"))
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
-    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
-
-    implementation(libs.camerax.core)
-    implementation(libs.camerax.camera2)
-    implementation(libs.camerax.lifecycle)
-    implementation(libs.camerax.view)
-
-    implementation(libs.nearby.connections)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

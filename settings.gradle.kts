@@ -16,4 +16,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "shutterlink"
 include(":app")
-include(":protocol")

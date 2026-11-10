@@ -37,21 +37,23 @@ connection, and the consequence is a reconnection the user wanted anyway.
 
 ## Permissions, and why each exists
 
-The app asks for a lot, and it should be able to justify every one.
+Four permissions, all Bluetooth.
 
 | Permission | Why | When |
 |---|---|---|
-| `CAMERA` | It is a camera. | Phase 1 |
-| `BLUETOOTH_SCAN`, `BLUETOOTH_ADVERTISE`, `BLUETOOTH_CONNECT` | Finding the other phone, being findable by it, and connecting. Android 12+. | Phase 2 |
-| `BLUETOOTH`, `BLUETOOTH_ADMIN` | The same thing on Android 11 and below, where the three above do not exist. Capped with `maxSdkVersion="30"` so they are not requested on versions that have the finer-grained ones. | Phase 2, Android ≤ 11 |
-| `ACCESS_WIFI_STATE`, `CHANGE_WIFI_STATE` | Nearby Connections needs them to form the Wi-Fi Direct group that carries the video. Neither reads your network traffic or the networks you have joined. | Phase 2 |
-| `ACCESS_COARSE_LOCATION` | Nearby Connections refuses to search for devices without it on **every** Android version, 14 included, even with `BLUETOOTH_SCAN` and `NEARBY_WIFI_DEVICES` granted — it fails with `MISSING_PERMISSION_ACCESS_COARSE_LOCATION`. The platform does not require this for a `neverForLocation` scan; Google's library does. The app still never reads a location. | Phase 2, all versions |
-| `ACCESS_FINE_LOCATION` | Android 10–12 refuse *any* BLE scan or Wi-Fi Direct discovery without it. The app does not read your location and does not want it; `maxSdkVersion="32"` means it is never even requested on Android 13 and up. | Phase 2, Android ≤ 12 only |
-| `NEARBY_WIFI_DEVICES` | The Android 13+ replacement for the above, declared `neverForLocation` so the system itself enforces that we cannot derive a location from it. | Phase 2, Android 13+ |
-| `FOREGROUND_SERVICE` | The far phone has to keep streaming with its screen off. The notification is required and deliberate — you should be able to see that it is running. | Phase 6 |
-| `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_CAMERA` | The camera phone has to keep streaming with its screen off, and Android stops the camera within seconds otherwise. The notification this requires is deliberate and is not suppressed: a phone holding a live camera should say so where its owner can see it. | Phase 6 |
-| `READ_MEDIA_IMAGES` | Picking up a photo another camera app just saved, so it can be sent back to you. | Phase 5.5 |
-| `SYSTEM_ALERT_WINDOW` | Only for third-party camera apps that cannot hand a photo back directly; it is what lets ShutterLink return to the foreground afterwards. Requested at the moment you first use such an app, never on launch. | Phase 5.5, optional |
+| `BLUETOOTH_ADVERTISE` | So your other phone can find this one to pair with. This app is the thing being found. | Android 12+ |
+| `BLUETOOTH_CONNECT` | Sending the keystroke that fires the shutter. | Android 12+ |
+| `BLUETOOTH`, `BLUETOOTH_ADMIN` | The same two on Android 11 and below, where the above do not exist. Capped with `maxSdkVersion="30"`. | Android ≤ 11 |
+
+That is the whole list.
+
+Earlier versions of this app also held `CAMERA`, `ACCESS_FINE_LOCATION`,
+`ACCESS_COARSE_LOCATION`, `NEARBY_WIFI_DEVICES`, `ACCESS_WIFI_STATE`,
+`CHANGE_WIFI_STATE`, `READ_MEDIA_IMAGES` and two foreground-service
+permissions. Every one of them existed to stream a viewfinder between two
+phones or to carry a photo back. None of that happens any more, so none of them
+are requested — and `BLUETOOTH_SCAN` is gone too, because the app is found
+rather than looking.
 
 ### What the built APK actually contains
 

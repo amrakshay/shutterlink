@@ -46,6 +46,20 @@ class HidShutter(private val context: Context) {
         private set
 
     /**
+     * True when a host has actually attached, which is the only state in which
+     * a keystroke goes anywhere.
+     *
+     * Distinct from [registered] on purpose, and the distinction cost real
+     * confusion: the Samsung reported `registered=true, plugged=false` and the
+     * shutter silently did nothing, because registering as a keyboard and
+     * having something listening are two different things.
+     */
+    val connected: Boolean get() = host != null
+
+    /** Called whenever [connected] changes, so a screen can follow it. */
+    var onHostChanged: ((Boolean) -> Unit)? = null
+
+    /**
      * A plain 8-byte boot-keyboard report descriptor, with one deliberate
      * change: the usage and logical maximums go to 0xFF rather than the usual
      * 0x65. Volume Up is usage 0x80, which is outside the normal range — a
@@ -87,7 +101,8 @@ class HidShutter(private val context: Context) {
         override fun onConnectionStateChanged(device: BluetoothDevice?, state: Int) {
             if (state == BluetoothProfile.STATE_CONNECTED) host = device
             if (state == BluetoothProfile.STATE_DISCONNECTED && device == host) host = null
-            Log.i(TAG, "HID connection state=$state")
+            Log.i(TAG, "HID connection state=$state, connected=$connected")
+            onHostChanged?.invoke(connected)
         }
     }
 
@@ -139,6 +154,9 @@ class HidShutter(private val context: Context) {
             BluetoothProfile.HID_DEVICE,
         )
     }
+
+    /** The attached host's name, for the UI to show. */
+    fun hostName(): String? = runCatching { host?.name }.getOrNull()
 
     /** Connect to a paired phone so keystrokes have somewhere to go. */
     fun connectTo(device: BluetoothDevice): Boolean = proxy?.connect(device) == true
