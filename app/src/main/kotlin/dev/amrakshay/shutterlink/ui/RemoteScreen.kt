@@ -69,9 +69,13 @@ private val TIMERS = listOf(0, 3, 10)
  * walk over and look at the other phone. Everything that tried to avoid that
  * walk — streaming a viewfinder, sending the photo across — needed a fast
  * local network, and the whole point is that this works in a field.
+ *
+ * [onShutterChanged] hands the activity a way to fire, so the phone's own
+ * volume keys can be the shutter. It is given null whenever a press would do
+ * nothing, which is what lets the volume keys go back to being volume keys.
  */
 @Composable
-fun RemoteScreen() {
+fun RemoteScreen(onShutterChanged: ((() -> Unit)?) -> Unit = {}) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -153,6 +157,11 @@ fun RemoteScreen() {
     DisposableEffect(Unit) { onDispose { hid.release() } }
 
     fun fire() {
+        // A press during a countdown does nothing — but the key is still
+        // swallowed by the activity, so it does not move the volume either.
+        // Falling through to the system mid-countdown would turn an impatient
+        // second press into a volume change.
+        if (countdown != null) return
         scope.launch {
             problem = null
             for (left in timer downTo 1) {
@@ -168,6 +177,14 @@ fun RemoteScreen() {
                 problem = "The keystroke did not go through. Is the other phone still paired?"
             }
         }
+    }
+
+    // Hand the activity a trigger while — and only while — a press would
+    // actually do something. Null the rest of the time, so the volume keys do
+    // what they normally do when the app is idle.
+    DisposableEffect(connected) {
+        onShutterChanged(if (connected) ({ fire() }) else null)
+        onDispose { onShutterChanged(null) }
     }
 
     KeepScreenOn()
@@ -236,6 +253,15 @@ fun RemoteScreen() {
                 color = Ink.Muted,
                 fontSize = 14.sp,
                 lineHeight = 21.sp,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Or press either volume key — easier to find without looking " +
+                    "when you are in the shot.",
+                color = Ink.Faint,
+                fontSize = 13.sp,
+                lineHeight = 19.sp,
                 textAlign = TextAlign.Center,
             )
         }

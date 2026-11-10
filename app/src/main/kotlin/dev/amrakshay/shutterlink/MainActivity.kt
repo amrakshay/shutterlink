@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,14 +34,72 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import dev.amrakshay.shutterlink.input.KeyVerdict
+import dev.amrakshay.shutterlink.input.VolumeShutter
 import dev.amrakshay.shutterlink.ui.Ink
 import dev.amrakshay.shutterlink.ui.RemoteScreen
 import dev.amrakshay.shutterlink.ui.ShutterLinkTheme
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Set by the shutter screen while it is able to take a photo, and cleared
+     * when it is not.
+     *
+     * Null is meaningful: it is how the volume keys go back to being volume
+     * keys the moment the app cannot shoot.
+     */
+    private var fireShutter: (() -> Unit)? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ShutterLinkTheme { App() } }
+        setContent {
+            ShutterLinkTheme { App(onShutterChanged = { fireShutter = it }) }
+        }
+    }
+
+    /**
+     * Lets the phone's own volume keys take the photo.
+     *
+     * The point of the app is that you are standing in the shot several metres
+     * away, often with the phone at your side. A button you can find by feel
+     * beats a circle you have to look at — which is why every physical remote
+     * works this way.
+     *
+     * `dispatchKeyEvent` rather than `onKeyDown`, because the release has to be
+     * swallowed too: hand that back to the system and the volume slider still
+     * appears over whatever you are doing.
+     */
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val verdict = VolumeShutter.decide(
+            isVolumeKey = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+                event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN,
+            isDown = event.action == KeyEvent.ACTION_DOWN,
+            isFirstPress = event.repeatCount == 0,
+            canFire = fireShutter != null,
+        )
+        if (verdict != KeyVerdict.IGNORE || event.keyCode == KeyEvent.KEYCODE_VOLUME_UP ||
+            event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
+        ) {
+            // Logged because "the volume key did nothing" and "the volume key
+            // changed the volume instead of taking a photo" are the two
+            // reports this feature will generate, and they are
+            // indistinguishable without knowing which verdict was reached.
+            android.util.Log.i(
+                "ShutterLink/Keys",
+                "volume key action=${event.action} repeat=${event.repeatCount} " +
+                    "canFire=${fireShutter != null} -> $verdict",
+            )
+        }
+        return when (verdict) {
+            KeyVerdict.FIRE -> {
+                fireShutter?.invoke()
+                true
+            }
+
+            KeyVerdict.SWALLOW -> true
+            KeyVerdict.IGNORE -> super.dispatchKeyEvent(event)
+        }
     }
 }
 
@@ -65,7 +124,7 @@ private fun bluetoothPermissions(): List<String> =
     }
 
 @Composable
-private fun App() {
+private fun App(onShutterChanged: ((() -> Unit)?) -> Unit) {
     val context = LocalContext.current
     var granted by remember {
         mutableStateOf(
@@ -81,7 +140,7 @@ private fun App() {
     ) { result -> granted = result.values.all { it } }
 
     if (granted) {
-        RemoteScreen()
+        RemoteScreen(onShutterChanged = onShutterChanged)
         return
     }
 

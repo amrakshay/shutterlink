@@ -21,6 +21,11 @@ Nothing is installed on the camera phone.
 - **Pairing, in the app.** A "Make this phone visible" button puts the phone into the platform's
   own discoverable mode for five minutes, so the other phone can find it from ordinary Bluetooth
   settings. The screen follows every step and says what failed when something does.
+- **The phone's own volume keys as the shutter.** Either key, found by feel
+  while you are standing in the shot. Both the press and the release are
+  swallowed so the volume does not move, holding the key fires once rather than
+  a burst, and the keys are left alone entirely whenever the app is not
+  connected.
 - **Self-timer**, 3 or 10 seconds, counted down on the phone in your hand.
 - **A choice of key.** Volume up by default. Camera apps differ, so it is a setting: on the
   OnePlus stock camera, volume up, volume down, camera, enter and D-pad centre all take a photo,

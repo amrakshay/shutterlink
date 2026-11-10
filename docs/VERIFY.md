@@ -33,6 +33,9 @@ does. Nothing here proves any other phone will.
 | 3s timer | **Passes** — fired after 6.3 s total |
 | 10s timer counts down on screen | **Passes** — read "6" three seconds in |
 | Nothing is left stuck | **Passes** — returns to Ready |
+| Either volume key on the controller fires it | **Passes** — 5 photos for 5 presses |
+| A held key fires once, not a burst | **Passes** — `repeat=0 -> FIRE`, `repeat=1 -> SWALLOW` |
+| Volume keys work normally when nothing is connected | **Passes** — `canFire=false -> IGNORE` on both press and release |
 | Reconnects after the app restarts | **Passes** — reopening the app with the phones still bonded reaches "Connected" in a few seconds with no setup at all |
 
 | First press after a cold start | **Passes** — 3 for 3 with the app and the camera app both force-stopped and reopened |

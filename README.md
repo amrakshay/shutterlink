@@ -31,6 +31,10 @@ at the other phone.
 ## What it does
 
 - **Fires the shutter** on whatever camera app is open on the other phone.
+- **Either volume key works as the shutter**, so you can take the photo without
+  looking at the phone — which is the usual situation, since you are in the
+  shot. The app only takes those keys over while it is connected; the rest of
+  the time they are ordinary volume keys.
 - **Self-timer**, 3 or 10 seconds, counted down on the phone in your hand.
 - **Picks the key it sends.** Volume up by default. Not every camera app honours
   the same one, so it is a setting rather than an assumption. Measured on the
