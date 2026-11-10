@@ -55,6 +55,7 @@ class VideoDecoder(
 
     /** True while deliberately discarding late pictures to catch up. */
     private var shedding = false
+    private var lastRenderedAtMillis = 0L
 
     fun start(raw: InputStream) {
         // Buffered, because FrameCodec resynchronises by reading one byte at a
@@ -197,11 +198,23 @@ class VideoDecoder(
                 Log.i(TAG, "TIMING ${lastLagMillis}ms behind — catching up")
             }
 
-            if (shedding) {
+            // Shedding must never become a frozen screen. Discarding late
+            // pictures only helps when there is a backlog to drain; if the link
+            // itself has collapsed, nothing arrives to catch up ON, and
+            // discarding what little does arrive leaves a still image while the
+            // app insists it is connected. Observed exactly that: 42 seconds
+            // behind, frame counter stuck, picture frozen.
+            //
+            // So a frame is always shown at least every half second. A late
+            // picture is poor; a frozen one is a broken app.
+            val now = System.currentTimeMillis()
+            val starved = now - lastRenderedAtMillis > 500
+            if (shedding && !starved) {
                 codec.releaseOutputBuffer(index, false)
                 dropped.incrementAndGet()
                 continue
             }
+            lastRenderedAtMillis = now
             codec.releaseOutputBuffer(index, true)
             if (!firstRenderLogged) {
                 firstRenderLogged = true

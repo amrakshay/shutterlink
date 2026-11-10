@@ -21,7 +21,7 @@ data class StreamQuality(val width: Int, val height: Int, val fps: Int, val bitr
         val MEDIUM = StreamQuality(960, 540, 24, 1_600_000)
         val LOW = StreamQuality(640, 360, 15, 700_000)
 
-        /** Worst first, so stepping down is just walking the list. */
+        /** Best first, so stepping down is just walking the list. */
         val ladder = listOf(HIGH, MEDIUM, LOW)
     }
 }
@@ -42,6 +42,11 @@ class PreviewEncoder(
     private val quality: StreamQuality,
     private val sink: OutputStream,
     private val onBroken: (Throwable) -> Unit,
+    /**
+     * Called when writes keep blocking — the link cannot carry what we are
+     * sending, whatever Nearby says its medium is capable of.
+     */
+    private val onCongested: () -> Unit = {},
 ) {
     private var codec: MediaCodec? = null
     private var surface: Surface? = null
@@ -60,6 +65,7 @@ class PreviewEncoder(
     private var startedAtMillis = 0L
     private var firstFrameLogged = false
     private var blockedWrites = 0
+    private var lastCongestionReport = 0L
 
     /** The Surface CameraX should draw into. Valid until [stop]. */
     fun start(): Surface {
@@ -222,6 +228,17 @@ class PreviewEncoder(
                                 "TIMING write blocked ${blockedMillis}ms " +
                                     "(the link cannot keep up; $blockedWrites so far)",
                             )
+                        }
+                        // Measured congestion, not advertised capability.
+                        // Nearby reported this link HIGH while it was taking 45
+                        // seconds to answer a ping — because HIGH describes the
+                        // medium (Wi-Fi LAN), not what it is managing right now.
+                        // Blocking writes are the only honest signal.
+                        val sinceLast = System.currentTimeMillis() - lastCongestionReport
+                        if (blockedWrites >= 5 && sinceLast > 10_000) {
+                            lastCongestionReport = System.currentTimeMillis()
+                            blockedWrites = 0
+                            onCongested()
                         }
                     }
 

@@ -88,7 +88,15 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
     // the same state, is what stops the link upgrade from quietly undoing a
     // thermal step-down.
     var thermalCap by remember { mutableStateOf(StreamQuality.HIGH) }
-    val quality = if (linkIsFast) thermalCap else StreamQuality.LOW
+    // A third cap, from what the link is actually managing rather than what
+    // Nearby says it is capable of. The plan called for this from the start and
+    // it was never built; a congested home Wi-Fi showed why it is needed.
+    var congestionCap by remember { mutableStateOf(StreamQuality.HIGH) }
+    val quality = when {
+        !linkIsFast -> StreamQuality.LOW
+        congestionCap.height < thermalCap.height -> congestionCap
+        else -> thermalCap
+    }
     var streaming by remember { mutableStateOf(false) }
     var shots by remember { mutableIntStateOf(0) }
     var countdown by remember { mutableStateOf<Int?>(null) }
@@ -147,7 +155,15 @@ fun CameraRigScreen(pairing: Pairing, linkIsFast: Boolean, onEnd: () -> Unit) {
                 problem = "No connection to stream to"
                 return@runCatching
             }
-            val fresh = PreviewEncoder(quality, sink) { problem = "The encoder stopped" }
+            val fresh = PreviewEncoder(
+                quality = quality,
+                sink = sink,
+                onBroken = { problem = "The encoder stopped" },
+                onCongested = {
+                    val next = StreamQuality.ladder.firstOrNull { it.height < quality.height }
+                    if (next != null) congestionCap = next
+                },
+            )
             val surface = fresh.start()
             val facts = session.bindForStreaming(lifecycleOwner, surface, front) { degrees ->
                 rotation = degrees

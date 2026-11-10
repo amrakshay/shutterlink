@@ -36,11 +36,17 @@ Nothing goes to the internet. The two phones talk directly to each other.
 
 ## How it talks
 
-Bluetooth LE finds the other phone and carries the commands. Wi-Fi Direct carries the video,
-because Bluetooth cannot: a watchable preview needs a few megabits a second, and Bluetooth gives
-you a fraction of that. That split is what makes the preview smooth rather than a slideshow.
+Bluetooth LE finds the other phone and carries the commands. The video then moves onto Wi-Fi,
+because Bluetooth cannot carry it: a watchable preview needs a few megabits a second.
 
-The pairing is between the two phones only. There is no account, no server, no cloud.
+**Which Wi-Fi, exactly, is not up to us.** Nearby Connections picks the medium, and in testing it
+chose `WIFI_LAN` — the two phones talking over the local network through the router — rather than a
+direct phone-to-phone Wi-Fi Direct link. That works well on a quiet network and badly on a busy
+one, and it is worth knowing if the preview degrades: the bottleneck may be the router rather than
+either phone.
+
+Nothing leaves the local network in either case. There is no account, no server and no cloud, and
+the app holds no `INTERNET` permission at all — CI fails the build if one appears.
 
 ## Requirements
 
