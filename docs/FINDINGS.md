@@ -26,6 +26,7 @@ opposite ends of the permission regime.
 | 11 | Preview lags behind reality | HD pushed down a Bluetooth link before Nearby upgrades to Wi-Fi | **Fixed** |
 | 12 | Gives up reconnecting after ~25s, and stays given-up when the phone returns | Retry budget counted attempts, not time; no rejoin on rediscovery | **Fixed** |
 | 13 | Feed juddery — 2.9 fps on an idle Wi-Fi link | Auto-exposure lengthened exposures; the camera was never asked for a frame rate | **Fixed** — 28.6 fps |
+| 14 | Picture ~2s behind reality, and growing | Frame reader was unbuffered; byte-at-a-time resync could not drain the stream | **Fixed** — lag now ±60ms |
 
 ---
 
@@ -343,3 +344,79 @@ link.
 The control round trip occasionally spikes — 1597 ms and 1118 ms were seen
 among otherwise 90-170 ms readings. Not understood. Worth watching during the
 endurance run.
+
+## 14 · The picture fell further behind every second
+
+Reported as "I waved my hand and it appeared two seconds later on the
+controller". This is the one measurement nothing in the app had ever taken:
+frame counters, round trips and throughput all read healthy throughout.
+
+### Ruling things out
+
+A probe on how many bytes sat **unread** showed only 120-170 ms of queued video
+— not two seconds. Adding the sender's pipe, the camera and the decoder
+accounted for roughly half a second. The conclusion drawn was that the rest
+must be inside Nearby's transport, and the fix would be to abandon stream
+payloads for discrete messages. **That was wrong**, and it would have been
+major surgery.
+
+### Building the instrument instead
+
+Frames now carry the sender's wall clock, and `Pong` carries the responder's,
+so the two clocks can be aligned and a frame's true age measured on arrival.
+
+It reported **minus five seconds** on the first run. A negative latency is
+impossible, which is the useful kind of wrong: the offset is how far the
+sender's clock is *ahead*, so it must be **subtracted** when converting their
+timestamp into ours. Adding it doubled the error rather than cancelling it. A
+smaller sign error would have produced a plausible, wrong number and sent the
+next fix in the wrong direction — so the offset is now logged beside every lag
+reading, where a bad correction cannot hide inside the answer.
+
+### What it actually showed
+
+```
+lag  440ms   ->  693ms  ->  783ms  ->  1239ms      climbing
+backlog 20850 -> 60180 -> 47149 -> 63065 bytes     climbing
+```
+
+Latency that **grows** is not a buffer sitting in the path — it is the consumer
+running slower than the producer. Nothing was stuck in Nearby; we simply could
+not read fast enough.
+
+`FrameCodec.read` resynchronises by reading **one byte at a time**, then pulls
+the header in small chunks. Against an unbuffered transport stream that is
+several syscalls per frame, thirty times a second, on the slower phone in the
+pair. Wrapping it in a `BufferedInputStream` fixed it.
+
+```
+after:  lag -16ms to +61ms, stable;  backlog mostly 0
+        clock offset steady within 30ms (was swinging ~700ms)
+```
+
+### Two things added alongside, and what is honest about them
+
+**Late pictures are now discarded rather than displayed.** Every frame is still
+decoded, because the decoder needs them all for reference, but one that is
+already late is released without rendering. This bounds latency whatever the
+underlying cause. It **never activated during this test** — the lag never
+reached its 400 ms threshold — so it is written but unexercised.
+
+**The clock offset is taken only from the fastest round trip seen.** The
+midpoint assumption holds only on an uncongested link; sampling every ping made
+the offset swing ~700 ms, noise larger than the measurement.
+
+### What this number does and does not cover
+
+It measures **encoder output to decoder render**. It excludes camera exposure
+and capture (~33 ms at 30 fps) and the display pipeline (~16-33 ms), so true
+glass-to-glass is perhaps 80-120 ms. Readings of −16 ms are not time travel;
+they are the residual error in the clock estimate, which bounds the resolution
+at roughly ±50 ms.
+
+### The lesson, again
+
+Three diagnoses were wrong before this one, and the third was wrong *after* a
+real measurement — the backlog probe was accurate and the inference drawn from
+it was not. What settled it was measuring the quantity actually complained
+about, rather than quantities nearby.

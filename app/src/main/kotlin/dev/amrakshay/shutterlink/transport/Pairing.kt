@@ -104,6 +104,19 @@ class Pairing(
 
     private val myName = thisPhoneName()
     private val reconnect = Reconnect()
+
+    /**
+     * How far the other phone's clock is ahead of ours, in millis.
+     *
+     * Needed because a timestamp written on a video frame by the camera phone
+     * is meaningless here without it — the two devices have unrelated clocks.
+     */
+    @Volatile
+    var clockOffsetMillis: Long = 0
+        private set
+
+    /** The fastest round trip seen; the offset is only taken from one at least this good. */
+    private var bestRoundTrip: Long = Long.MAX_VALUE
     private var retryJob: Job? = null
 
     /** True once this pairing has been connected at least once. */
@@ -306,10 +319,33 @@ class Pairing(
             // the camera phone gave it.
             is Message.PhotoReady -> expectedPhotos[message.payloadId] = message
 
-            is Message.Ping -> transport.send(Message.Pong(message.stamp))
+            is Message.Ping -> transport.send(
+                Message.Pong(message.stamp, respondedAtMillis = System.currentTimeMillis()),
+            )
 
-            is Message.Pong -> _state.update {
-                it.copy(latencyMillis = System.currentTimeMillis() - message.stamp)
+            is Message.Pong -> {
+                val now = System.currentTimeMillis()
+                val roundTrip = now - message.stamp
+                // Standard one-way estimate: the reply was written at roughly
+                // the midpoint of the round trip, so the difference between
+                // their clock and ours at that instant is the offset. Good to
+                // within the link's asymmetry, which is plenty for telling
+                // 200ms of latency from 2000ms.
+                // Only trust the offset from the FASTEST round trip seen.
+                //
+                // The estimate assumes the reply was written at the midpoint of
+                // the round trip, which is only true when the link is not
+                // congested. Taking every sample made the offset swing by ~700ms
+                // between readings — noise larger than the thing being measured.
+                // A slow round trip carries no information about the offset; a
+                // fast one is nearly all signal. The floor decays slowly so a
+                // genuinely improved link is not ignored forever.
+                if (message.respondedAtMillis > 0 && roundTrip in 0..bestRoundTrip) {
+                    bestRoundTrip = roundTrip
+                    clockOffsetMillis = message.respondedAtMillis - (message.stamp + roundTrip / 2)
+                }
+                bestRoundTrip += 20
+                _state.update { it.copy(latencyMillis = roundTrip) }
             }
 
             is Message.Bye -> _state.update {

@@ -204,6 +204,7 @@ class PreviewEncoder(
                             keyframe = isKey,
                             config = isConfig,
                             bytes = bytes,
+                            sentAtMillis = System.currentTimeMillis(),
                         ),
                     )
                     sink.flush()

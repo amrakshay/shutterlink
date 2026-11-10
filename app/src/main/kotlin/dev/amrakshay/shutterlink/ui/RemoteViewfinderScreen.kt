@@ -129,6 +129,7 @@ fun RemoteViewfinderScreen(pairing: Pairing, state: PairingState, onBack: () -> 
             onHealth = { health = it },
             onEnded = { },
             onSize = { w, h -> videoSize = w to h },
+            clockOffsetMillis = { pairing.clockOffsetMillis },
         ).also { it.start(stream) }
     }
 

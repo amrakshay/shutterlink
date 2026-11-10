@@ -56,9 +56,16 @@ sealed interface Message {
     @SerialName("ping")
     data class Ping(val stamp: Long) : Message
 
+    /**
+     * [stamp] is the asker's clock echoed back untouched, which gives the round
+     * trip. [respondedAtMillis] is the answerer's own wall clock at the moment
+     * it replied, which is what lets the two phones' clocks be aligned —
+     * without that, a timestamp carried on a video frame means nothing at the
+     * far end.
+     */
     @Serializable
     @SerialName("pong")
-    data class Pong(val stamp: Long) : Message
+    data class Pong(val stamp: Long, val respondedAtMillis: Long = 0) : Message
 
     /** Sent when a phone leaves deliberately, so the other can say so rather than guess. */
     @Serializable

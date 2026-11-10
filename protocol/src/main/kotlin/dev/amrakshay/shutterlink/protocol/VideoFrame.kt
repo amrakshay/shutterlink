@@ -18,6 +18,14 @@ data class VideoFrame(
     val keyframe: Boolean,
     val config: Boolean,
     val bytes: ByteArray,
+    /**
+     * The sender's wall clock when this frame left the encoder.
+     *
+     * Not the same as [ptsMicros], which is the codec's own timebase and means
+     * nothing on the other phone. Paired with the clock offset from the ping
+     * exchange, this is what turns "it feels like two seconds" into a number.
+     */
+    val sentAtMillis: Long = 0,
 ) {
     // Generated equals/hashCode would compare the ByteArray by identity, which
     // silently makes every round-trip test pass. Written out so they compare
@@ -28,6 +36,7 @@ data class VideoFrame(
         return ptsMicros == other.ptsMicros &&
             keyframe == other.keyframe &&
             config == other.config &&
+            sentAtMillis == other.sentAtMillis &&
             bytes.contentEquals(other.bytes)
     }
 
@@ -35,6 +44,7 @@ data class VideoFrame(
         var result = ptsMicros.hashCode()
         result = 31 * result + keyframe.hashCode()
         result = 31 * result + config.hashCode()
+        result = 31 * result + sentAtMillis.hashCode()
         result = 31 * result + bytes.contentHashCode()
         return result
     }
@@ -47,9 +57,10 @@ data class VideoFrame(
  * the boundaries have to be written in. Each frame is:
  *
  * ```
- *   magic   4 bytes   "SLV1" — resynchronisation point and a version
+ *   magic   4 bytes   "SLV2" — resynchronisation point and a version
  *   flags   1 byte    bit 0 keyframe, bit 1 config
  *   pts     8 bytes   presentation timestamp, microseconds, big-endian
+ *   sent    8 bytes   sender's wall clock in millis, big-endian
  *   length  4 bytes   payload length, big-endian
  *   payload length bytes
  * ```
@@ -60,9 +71,12 @@ data class VideoFrame(
  */
 object FrameCodec {
 
-    val MAGIC = byteArrayOf('S'.code.toByte(), 'L'.code.toByte(), 'V'.code.toByte(), '1'.code.toByte())
+    // Bumped to SLV2 when the wall-clock field was added. The magic carries the
+    // version precisely so a mismatched pair fails to sync rather than
+    // misreading each other's fields as picture data.
+    val MAGIC = byteArrayOf('S'.code.toByte(), 'L'.code.toByte(), 'V'.code.toByte(), '2'.code.toByte())
 
-    const val HEADER_BYTES = 4 + 1 + 8 + 4
+    const val HEADER_BYTES = 4 + 1 + 8 + 8 + 4
 
     /**
      * Frames larger than this are treated as a corrupt length rather than
@@ -86,7 +100,8 @@ object FrameCodec {
                 (if (frame.config) FLAG_CONFIG else 0)
             ).toByte()
         writeLong(header, 5, frame.ptsMicros)
-        writeInt(header, 13, frame.bytes.size)
+        writeLong(header, 13, frame.sentAtMillis)
+        writeInt(header, 21, frame.bytes.size)
         out.write(header)
         out.write(frame.bytes)
     }
@@ -107,7 +122,8 @@ object FrameCodec {
 
         val flags = rest[0].toInt()
         val pts = readLong(rest, 1)
-        val length = readInt(rest, 9)
+        val sentAt = readLong(rest, 9)
+        val length = readInt(rest, 17)
 
         if (length < 0 || length > MAX_FRAME_BYTES) {
             // Treat an impossible length as corruption rather than trusting it.
@@ -124,6 +140,7 @@ object FrameCodec {
             keyframe = flags and FLAG_KEYFRAME != 0,
             config = flags and FLAG_CONFIG != 0,
             bytes = payload,
+            sentAtMillis = sentAt,
         )
     }
 

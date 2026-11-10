@@ -16,7 +16,8 @@ class FrameCodecTest {
         config: Boolean = false,
         size: Int = 32,
         fill: Byte = 7,
-    ) = VideoFrame(pts, keyframe, config, ByteArray(size) { fill })
+        sentAt: Long = 1_762_700_000_000L,
+    ) = VideoFrame(pts, keyframe, config, ByteArray(size) { fill }, sentAt)
 
     private fun roundTrip(vararg frames: VideoFrame): List<VideoFrame> {
         val out = ByteArrayOutputStream()
@@ -93,10 +94,17 @@ class FrameCodecTest {
     fun `a corrupt length is refused instead of allocated`() {
         // The whole point of the cap. Without it this is an OutOfMemoryError
         // triggered by four bad bytes on the wire.
-        val header = ByteArray(FrameCodec.HEADER_BYTES)
-        FrameCodec.MAGIC.copyInto(header, 0)
-        header[13] = 0x7F; header[14] = 0xFF.toByte()
-        header[15] = 0xFF.toByte(); header[16] = 0xFF.toByte()
+        // Built by corrupting a real header rather than by hand, so this keeps
+        // testing the cap instead of breaking whenever the header grows — which
+        // is exactly what it did when the wall-clock field was added.
+        val out = ByteArrayOutputStream()
+        FrameCodec.write(out, frame(size = 8))
+        val header = out.toByteArray().copyOf(FrameCodec.HEADER_BYTES)
+        val lengthAt = FrameCodec.HEADER_BYTES - 4
+        header[lengthAt] = 0x7F
+        header[lengthAt + 1] = 0xFF.toByte()
+        header[lengthAt + 2] = 0xFF.toByte()
+        header[lengthAt + 3] = 0xFF.toByte()
         assertNull(FrameCodec.read(ByteArrayInputStream(header)))
     }
 
@@ -131,6 +139,14 @@ class FrameCodecTest {
             true
         }
         assertTrue("an oversized frame should be refused before it reaches the wire", failed)
+    }
+
+    @Test
+    fun `the sender's wall clock survives the round trip`() {
+        // The whole point of the field: without it arriving intact, end-to-end
+        // latency cannot be measured at the far end at all.
+        val sent = frame(sentAt = 1_762_700_123_456L)
+        assertEquals(1_762_700_123_456L, roundTrip(sent).single().sentAtMillis)
     }
 
     @Test
