@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="18 18 72 72" width="432" height="432" role="img" aria-label="ShutterLink icon">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="18" y1="12" x2="90" y2="98">
+      <stop offset="0" stop-color="#16222B"/>
+      <stop offset="1" stop-color="#0A0F14"/>
+    </linearGradient>
+    <clipPath id="mask">
+      <rect x="18" y="18" width="72" height="72" rx="16.2" ry="16.2"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#mask)">
+    <rect x="18" y="18" width="72" height="72" fill="url(#bg)"/>
+    <path d="M54,28 A26,26 0 1 1 53.99,28"
+          fill="none" stroke="#F2F5F7" stroke-width="5.2" stroke-linecap="round"
+          stroke-dasharray="133.96 163.36"
+          stroke-dashoffset="-5.72"/>
+    <circle cx="54" cy="54" r="10.2" fill="#5AC8E8"/>
+  </g>
+</svg>
